@@ -52,8 +52,8 @@ them like the built-ins.
 .tf/update.sh
 ```
 
-This replaces `AGENTS.md`, `SKILL.md`, `base.md` and `update.sh` with the latest versions. It
-never touches `tf.md`.
+This replaces `AGENTS.md`, `SKILL.md`, `base.md`, `VERSION` and `update.sh` with the latest
+versions and prints the version change. It never touches `tf.md`.
 
 ## Files
 
@@ -63,4 +63,5 @@ never touches `tf.md`.
 | `base.md` | The format, and the built-in tags and commands with their full definitions (tf's; replaced by updates) |
 | `AGENTS.md` | Points the agent to `base.md` and `tf.md` |
 | `SKILL.md` | The `tf` command |
+| `VERSION` | Installed tf version: the release tag, then the commit hash (written by install and update) |
 | `install.sh`, `update.sh` | Setup (`install.sh` deletes itself) and updates |
