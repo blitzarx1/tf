@@ -20,6 +20,8 @@ add_line() {
 	touch "$1"
 	grep -qxF "$2" "$1" && return
 	[ -s "$1" ] && [ -n "$(tail -c1 "$1")" ] && echo >> "$1"
+	# Instructions files get a blank line first, so the line isn't glued to the last section.
+	case "$1" in *.md) [ -s "$1" ] && echo >> "$1" ;; esac
 	echo "$2" >> "$1"
 	echo "  $1: added $2"
 }
