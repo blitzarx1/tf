@@ -64,7 +64,7 @@ built-in.
 
 Rules for every command:
 
-1. Re-read `.tf/tf.md` and `.tf/base.md` from disk first, even if you read them earlier in the
+1. Re-read `.tf/tf.md` and `.tf/skill/base.md` from disk first, even if you read them earlier in the
    session: the owner edits them between commands, so a remembered state is stale.
 2. Touch only the items the command works on. Keep the owner's wording and the other items as they
    are; reflow only to stay within the format. Never cancel an item (`~~...~~`) yourself.

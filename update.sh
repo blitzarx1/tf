@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Updates tf in place. Run from the project root: .tf/update.sh
-# Replaces AGENTS.md, SKILL.md, base.md, VERSION and this script with the latest versions. Never
-# touches tf.md: your tasks stay as they are.
+# Replaces skill/ (AGENTS.md, SKILL.md, base.md), VERSION and this script with the latest versions.
+# Never touches tf.md: your tasks stay as they are.
 set -euo pipefail
 
 # write_version REPO OUT: writes the tf version of the clone REPO to OUT. Line 1 is the release
@@ -35,7 +35,8 @@ old="$(show_version .tf/VERSION)"
 new="$(show_version "$tmp/tf/VERSION")"
 
 # Each file is replaced by a rename, never rewritten in place: bash is still reading this script.
-for f in base.md AGENTS.md SKILL.md VERSION update.sh; do
+mkdir -p .tf/skill
+for f in skill/base.md skill/AGENTS.md skill/SKILL.md VERSION update.sh; do
 	if cmp -s "$tmp/tf/$f" ".tf/$f"; then
 		echo "  $f: unchanged"
 	else

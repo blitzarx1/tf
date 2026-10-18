@@ -23,8 +23,9 @@ git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
 
 `install.sh`:
 - turns `.tf` into a plain folder by deleting `.tf/.git`;
-- links it as the `tf` skill (`.claude/skills/tf`, `.agents/skills/tf`);
-- adds `@.tf/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`;
+- links `.tf/skill` as the `tf` skill (`.claude/skills/tf`, `.agents/skills/tf`);
+- adds `@.tf/skill/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`;
+- deletes `README.md` and itself from `.tf`, leaving `tf.md`, `update.sh`, `VERSION` and `skill/`;
 - gitignores `.tf/` and the links, since the task list is personal. Remove those lines to share it.
 
 Already have a task list (a `TODO.md`, a folder of notes, an issues export)? Type
@@ -43,7 +44,7 @@ Edit `tf.md` yourself whenever you like. Add new items to `# todo` or `# backlog
 between the two, and add `D : ` descriptions and `C : ` comments. The agent re-reads the file
 every time.
 
-Add your own commands under `# commands` in `tf.md` (the format is in `base.md`), then type
+Add your own commands under `# commands` in `tf.md` (the built-in ones are in `skill/base.md`), then type
 them like the built-ins.
 
 ## Update
@@ -52,16 +53,17 @@ them like the built-ins.
 .tf/update.sh
 ```
 
-This replaces `AGENTS.md`, `SKILL.md`, `base.md`, `VERSION` and `update.sh` with the latest
-versions and prints the version change. It never touches `tf.md`.
+This replaces `skill/`, `VERSION` and `update.sh` with the latest versions and prints the version
+change. It never touches `tf.md`.
 
 ## Files
 
 | File | What |
 |---|---|
 | `tf.md` | Your tasks, tags and commands |
-| `base.md` | The format, and the built-in tags and commands with their full definitions (tf's; replaced by updates) |
-| `AGENTS.md` | Points the agent to `base.md` and `tf.md` |
-| `SKILL.md` | The `tf` command |
+| `skill/base.md` | The format, and the built-in tags and commands with their full definitions (tf's; replaced by updates) |
+| `skill/AGENTS.md` | Points the agent to `skill/base.md` and `tf.md` |
+| `skill/SKILL.md` | The `tf` skill, linked as `.claude/skills/tf` and `.agents/skills/tf` |
 | `VERSION` | Installed tf version: the release tag, then the commit hash (written by install and update) |
-| `install.sh`, `update.sh` | Setup (`install.sh` deletes itself) and updates |
+| `update.sh` | Updates `skill/`, `VERSION` and itself |
+| `install.sh` | Setup; deletes itself |

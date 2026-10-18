@@ -19,4 +19,4 @@ Your own commands, run by typing them. One entry per command, entries separated 
   D : <what the agent does; <args> are filled in from what you typed>
 ```
 
-Names start with `tf ` and can't reuse a built-in command; those are listed in `.tf/base.md`.
+Names start with `tf ` and can't reuse a built-in command; those are listed in `.tf/skill/base.md`.

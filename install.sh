@@ -30,10 +30,10 @@ show_version() {
 [ -d .tf/.git ] && write_version .tf .tf/VERSION
 rm -rf .tf/.git
 
-# .tf holds SKILL.md at its root, so the folder itself is the skill.
+# .tf/skill holds SKILL.md at its root, so that folder is the skill.
 for dir in .claude/skills .agents/skills; do
 	mkdir -p "$dir"
-	ln -sfn ../../.tf "$dir/tf"
+	ln -sfn ../../.tf/skill "$dir/tf"
 done
 
 # add_line FILE LINE: appends LINE to FILE (created if missing) unless it is already there.
@@ -46,11 +46,12 @@ add_line() {
 	echo "$2" >> "$1"
 	echo "  $1: added $2"
 }
-add_line CLAUDE.md "@.tf/AGENTS.md"                                   # Claude Code imports it
-add_line AGENTS.md "Tasks: follow .tf/AGENTS.md (tf task flow)."      # Codex reads only the root AGENTS.md
+add_line CLAUDE.md "@.tf/skill/AGENTS.md"                             # Claude Code imports it
+add_line AGENTS.md "Tasks: follow .tf/skill/AGENTS.md (tf task flow)." # Codex reads only the root AGENTS.md
 for p in .tf/ .claude/skills/tf .agents/skills/tf; do
 	add_line .gitignore "$p"
 done
 
-rm -f .tf/install.sh
+# The README is for the repo page; install.sh runs once.
+rm -f .tf/README.md .tf/install.sh
 echo "tf $(show_version .tf/VERSION) installed: tasks in .tf/tf.md; add tasks there yourself, type \"tf\" to work the next one."
