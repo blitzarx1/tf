@@ -32,4 +32,4 @@ for p in .tf/ .claude/skills/tf .agents/skills/tf; do
 done
 
 rm -f .tf/install.sh
-echo "tf installed: tasks in .tf/tf.md; type \"tf\" to work the next one, \"tf new <title>\" to add one."
+echo "tf installed: tasks in .tf/tf.md; add tasks there yourself, type \"tf\" to work the next one."
