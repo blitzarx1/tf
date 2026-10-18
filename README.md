@@ -60,7 +60,7 @@ never touches `tf.md`.
 | File | What |
 |---|---|
 | `tf.md` | Your tasks, tags and commands |
-| `base.md` | The format of `tf.md` and the built-in tags and commands (tf's; replaced by updates) |
-| `AGENTS.md` | The rules the agent follows |
+| `base.md` | The format, and the built-in tags and commands with their full definitions (tf's; replaced by updates) |
+| `AGENTS.md` | Points the agent to `base.md` and `tf.md` |
 | `SKILL.md` | The `tf` command |
 | `install.sh`, `update.sh` | Setup (`install.sh` deletes itself) and updates |

@@ -11,4 +11,12 @@ into). One per line: `- <tag> <meaning>`.
 
 # commands
 
-Your own commands, run by typing them. The format and the built-in commands are in `.tf/base.md`.
+Your own commands, run by typing them. One entry per command, entries separated by a blank line:
+
+```
+- tf <name> <args>
+
+  D : <what the agent does; <args> are filled in from what you typed>
+```
+
+Names start with `tf ` and can't reuse a built-in command; those are listed in `.tf/base.md`.
