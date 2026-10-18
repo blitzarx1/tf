@@ -1,7 +1,9 @@
 # tf: task flow
 
-A task list your coding agent works through, one item at a time. It's a single Markdown file in
-your repo, and it works with Claude Code and Codex.
+Agents control plane: a task list your coding agent works through, one item at a time. It's a
+single Markdown file in your repo, and it works with Claude Code and Codex.
+
+While the agent works, you plan the next moves.
 
 - **Everything in one file.** `tf.md` holds what to do next, the backlog, what's done and why.
 - **Scoped and controllable.** The agent only takes the first open item under `# todo`. You decide

@@ -26,11 +26,12 @@ file's format is defined in its `# info` section; read it, it is the source of t
    the answer without asking: add a `C : ` field with the short answer, mark the item `[v]` and move
    it to the **top** of `# done` (newest first).
 3. **Task** or **bug** (tag `b`; find the root cause first): its `D : ` and `C : ` fields are the
-   spec. Plan the implementation and ask about anything they leave open; implement only after the
-   owner approves the plan. An **epic** gets a plan that splits it into tasks (marked with a new
-   custom tag, added to `# custom tags`) instead of an implementation. When the work is finished
-   and verified, mark the item `[v]`, add a short `C : ` summary (commit hash if any) and move it
-   to the **top** of `# done`.
+   spec. Switch to plan mode if your agent has one (Claude Code: `EnterPlanMode`), plan the
+   implementation and ask about anything they leave open; implement only after the owner approves
+   the plan. An **epic** gets a plan that splits it into tasks (marked with a new custom tag, added
+   to `# custom tags`) instead of an implementation. When the work is finished and verified, mark
+   the item `[v]`, add a short `C : ` summary (commit hash if any) and move it to the **top** of
+   `# done`.
 4. Touch only the item you worked on. Keep the owner's wording and the other items as they are;
    reflow only to stay within the format. Never mark an item `[x]` (cancelled) yourself.
 5. If no open item is left in `# todo`, say so and stop.
@@ -39,3 +40,5 @@ file's format is defined in its `# info` section; read it, it is the source of t
 
 Add `- [ ] <title>` at the **top of `# backlog`**, followed by the separator if other items follow.
 Nothing else: no tags, no body, unless the owner gives them.
+
+Tasks: follow .tf/AGENTS.md (tf task flow).
