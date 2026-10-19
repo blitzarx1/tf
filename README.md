@@ -1,5 +1,7 @@
 # tf: task flow
 
+*T'fuck task tracker for millenial vibecoders ~~enjoying~~ suffering from OCD...*
+
 Agents control plane: a task list your coding agent works through, one item at a time. It's a
 single Markdown file in your repo, and it works with Claude Code and Codex.
 
