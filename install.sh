@@ -48,9 +48,6 @@ add_line() {
 }
 add_line CLAUDE.md "@.tf/skill/AGENTS.md"                             # Claude Code imports it
 add_line AGENTS.md "Tasks: follow .tf/skill/AGENTS.md (tf task flow)." # Codex reads only the root AGENTS.md
-for p in .tf/ .claude/skills/tf .agents/skills/tf; do
-	add_line .gitignore "$p"
-done
 
 # The README is for the repo page; install.sh runs once.
 rm -f .tf/README.md .tf/install.sh
