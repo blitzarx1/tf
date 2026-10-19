@@ -14,8 +14,7 @@ Control plane for your llm: while the agent works, you plan the next moves.
 - **You control the llm.** The agent takes only the first open item under `# todo`, plans before
   it changes anything and asks about what the task leaves open. `# backlog` is never touched.
 - **Human-first.** You write tasks in your own words; the agent records what it did and why.
-  Commit `tf.md` and its git log is your task history (install gitignores `.tf/`; remove that
-  line to share it).
+  Commit `tf.md` and its git log is your task history.
 - **Minimal setup.** No server, no database, no CLI: one folder and two lines of config. Any model
   that can read files can follow it. Your own tags and commands go in `tf.md`.
 
@@ -31,8 +30,10 @@ git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
 - turns `.tf` into a plain folder by deleting `.tf/.git`;
 - links `.tf/skill` as the `tf` skill (`.claude/skills/tf`, `.agents/skills/tf`);
 - adds `@.tf/skill/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`;
-- deletes `README.md` and itself from `.tf`, leaving `tf.md`, `update.sh`, `VERSION` and `skill/`;
-- gitignores `.tf/` and the links, since the task list is personal. Remove those lines to share it.
+- deletes `README.md` and itself from `.tf`, leaving `tf.md`, `update.sh`, `VERSION` and `skill/`.
+
+To keep the task list private, add `.tf/`, `.claude/skills/tf` and `.agents/skills/tf` to
+`.gitignore`.
 
 Already have a task list (a `TODO.md`, a folder of notes, an issues export)? Type
 `tf migrate <path>`: the agent reads it, shows what goes where, and fills `tf.md` once you
