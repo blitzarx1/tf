@@ -7,13 +7,17 @@ in your repo, with skills for Claude and Codex.
 
 Control plane for your llm: while the agent works, you plan the next moves.
 
-- **Everything in one file.** `tf.md` holds what to do next, the backlog, what's done and why.
-- **Scoped and controllable.** The agent only takes the first open item under `# todo`. You decide
-  what goes there; `# backlog` is never touched.
+## Why
+
+- **Code-first.** One plain-text file in your repo. It reads well in any editor, diffs cleanly
+  and renders fine on GitHub. The format is written down in `skill/base.md`, not hidden in a tool.
+- **You control the llm.** The agent takes only the first open item under `# todo`, plans before
+  it changes anything and asks about what the task leaves open. `# backlog` is never touched.
+- **Human-first.** You write tasks in your own words; the agent records what it did and why.
+  Commit `tf.md` and its git log is your task history (install gitignores `.tf/`; remove that
+  line to share it).
 - **Minimal setup.** No server, no database, no CLI: one folder and two lines of config. Any model
-  that can read files can follow it.
-- **Explicit and configurable per repo.** The format is written in the file itself; your own tags go
-  in `# tags`.
+  that can read files can follow it. Your own tags and commands go in `tf.md`.
 
 ## Install
 
@@ -38,7 +42,7 @@ agree. Your old files stay as they are.
 
 | You type | The agent |
 |---|---|
-| `tf` | re-reads `.tf/tf.md` and works the first open `# todo` item: answers a question, plans and then implements a task or bug, splits an epic into tasks. Then it moves the item to `# done` with a summary. |
+| `tf` | re-reads `.tf/tf.md` and works the first open `# todo` item: answers a question, plans and then implements a task or bug, or asks you questions and splits an epic into tasks. Then it moves the item to `# done` with a summary. |
 | `tf <n>` | works the first `<n>` open `# todo` items together: one plan covering all of them, one approval, then implements them in order and closes each. |
 | `tf migrate <path>` | reads your old tracker (a file or a folder), shows what goes to `# todo`, `# backlog` and `# done`, and appends the tasks to `tf.md` once you agree. Open tasks it can't place go to `# backlog`. |
 
@@ -48,6 +52,35 @@ every time.
 
 Add your own commands under `# commands` in `tf.md` (the built-in ones are in `skill/base.md`), then type
 them like the built-ins.
+
+## Example
+
+You write a task in `# todo`:
+
+```
+- [ ] login redirect drops the return url
+    ! 80
+    : b
+
+  D : After logging in from /settings the user lands on /. Keep the page they came from.
+```
+
+You type `tf`. The agent finds the cause, shows a plan, you approve, it fixes the bug and moves
+the task to `# done`:
+
+```
+- [x] login redirect drops the return url
+    ! 80
+    : b
+
+  D : After logging in from /settings the user lands on /. Keep the page they came from.
+
+  C : Root cause: the auth callback ignored `next`. It now checks `next` against the site
+      origin and redirects there; added a test for /settings. 3f9c2a1
+```
+
+`! 80` is the priority (0-100, default 50) and `: b` the tags (`b` is a bug). The full format
+is in `skill/base.md`.
 
 ## Update
 
