@@ -14,7 +14,7 @@ into). One per line: `- <tag> <meaning>`.
 Your own commands, run by typing them. One entry per command, entries separated by a blank line:
 
 ```
-- tf <name> <args>
+- `tf <name> <args>`
 
   D : <what the agent does; <args> are filled in from what you typed>
 ```
