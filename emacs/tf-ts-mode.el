@@ -47,8 +47,6 @@
 
 (defface tf-ts-title-face '((t :inherit bold))
   "Face for task titles.")
-(defface tf-ts-done-face '((t :inherit shadow))
-  "Face for titles of finished tasks.")
 (defface tf-ts-overflow-face '((t :inherit whitespace-line))
   "Face for the text after the column limit (the 101st column and beyond).")
 (defface tf-ts-tab-face '((t :inherit whitespace-tab))
@@ -76,7 +74,7 @@
 
    :language 'tfmd :feature 'title
    '((task_header (state_open) (title) @tf-ts-title-face)
-     (task_header (state_done) (title) @tf-ts-done-face)
+     (task_header (state_done) (title) @tf-ts-title-face)
      (task_header (state_cancelled) (title) @tf-ts-cancelled-face)
      (title_continuation (text) @tf-ts-title-face))
 
@@ -266,9 +264,9 @@ Stops at the first line that is not part of a list in a field."
           0
         ;; a marker goes where an item above has its marker (sibling) or its text (child)
         (let* ((items (tf-ts-mode--list-items-above))
-               (valid (cons 4 (apply #'append items)))
+               (valid (cons 6 (apply #'append items)))
                (here (current-indentation)))
-          (if (member here valid) here (or (car (car items)) 4)))))
+          (if (member here valid) here (or (car (car items)) 6)))))
      ;; plain text: continues the paragraph above
      ((null pnode) 0)
      ((and gap (or in-field in-header)) 6)

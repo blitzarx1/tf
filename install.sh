@@ -4,7 +4,7 @@
 # Safe to run again: every step checks first.
 set -euo pipefail
 
-[ -f .tf/tf.md ] || { echo "run from the project root, with tf cloned into .tf" >&2; exit 1; }
+[ -f .tf/tasks.tfmd ] || { echo "run from the project root, with tf cloned into .tf" >&2; exit 1; }
 
 # write_version REPO OUT: writes the tf version of the clone REPO to OUT. Line 1 is the release
 # tag of the commit (no leading "v"), or the nearest earlier tag plus "-dev", or empty if there are
@@ -51,4 +51,4 @@ add_line AGENTS.md "Tasks: follow .tf/skill/AGENTS.md (tf task flow)." # Codex r
 
 # The README is for the repo page; install.sh runs once.
 rm -f .tf/README.md .tf/install.sh
-echo "tf $(show_version .tf/VERSION) installed: tasks in .tf/tf.md; add tasks there yourself, type \"tf\" to work the next one."
+echo "tf $(show_version .tf/VERSION) installed: tasks in .tf/tasks.tfmd; add tasks there yourself, type \"tf\" to work the next one."

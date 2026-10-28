@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Updates tf in place. Run from the project root: .tf/update.sh
 # Replaces skill/ (AGENTS.md, SKILL.md, base.md), VERSION and this script with the latest versions.
-# Never touches tf.md: your tasks stay as they are.
+# Never touches tasks.tfmd: your tasks stay as they are.
 set -euo pipefail
 
 # write_version REPO OUT: writes the tf version of the clone REPO to OUT. Line 1 is the release
@@ -24,7 +24,7 @@ show_version() {
 }
 
 repo="${TF_REPO:-https://github.com/blitzarx1/tf}"
-[ -f .tf/tf.md ] || { echo "run from the project root (no .tf/tf.md here)" >&2; exit 1; }
+[ -f .tf/tasks.tfmd ] || { echo "run from the project root (no .tf/tasks.tfmd here)" >&2; exit 1; }
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
