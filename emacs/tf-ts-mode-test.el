@@ -197,6 +197,10 @@
     (should (looking-at "- \\[ \\] open task"))
     (should-error (tf-ts-mode-previous-task) :type 'user-error)))
 
+(defun tf-ts-mode-test--no-ids (text)
+  "TEXT with the unix time ids replaced by ID."
+  (replace-regexp-in-string "^\\(    \\. \\)[0-9]+$" "\\1ID" text))
+
 (ert-deftest tf-ts-mode-test-new ()
   (tf-ts-mode-test--with-buffer
       (concat "# todo\n\n- [ ] one\n\n" tf-ts-mode--separator "\n\n- [ ] two\n")
@@ -204,19 +208,20 @@
     (tf-ts-mode-next-task)
     (tf-ts-mode-new)
     (insert "new")
-    (should (equal (buffer-string)
+    (should (equal (tf-ts-mode-test--no-ids (buffer-string))
                    (concat "# todo\n\n- [ ] one\n\n" tf-ts-mode--separator
-                           "\n\n- [ ] new\n\n" tf-ts-mode--separator "\n\n- [ ] two\n")))))
+                           "\n\n- [ ] new\n    . ID\n    ! 50\n\n" tf-ts-mode--separator
+                           "\n\n- [ ] two\n")))))
 
 (ert-deftest tf-ts-mode-test-new-last ()
   (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] one\n\n  D : text\n"
     (goto-char (point-min))
     (tf-ts-mode-next-task)
     (tf-ts-mode-new)
-    (should (equal (buffer-string)
+    (should (equal (tf-ts-mode-test--no-ids (buffer-string))
                    (concat "# todo\n\n- [ ] one\n\n  D : text\n\n" tf-ts-mode--separator
-                           "\n\n- [ ] \n")))
-    (should (looking-at "\n\\'"))))
+                           "\n\n- [ ] \n    . ID\n    ! 50\n")))
+    (should (looking-at "\n    \\. "))))
 
 (ert-deftest tf-ts-mode-test-new-outside-todo ()
   (tf-ts-mode-test--with-buffer
@@ -225,8 +230,8 @@
     (search-forward "later")
     (tf-ts-mode-new)
     (insert "new")
-    (should (equal (buffer-string)
-                   (concat "# todo\n\n- [ ] new\n\n" tf-ts-mode--separator
+    (should (equal (tf-ts-mode-test--no-ids (buffer-string))
+                   (concat "# todo\n\n- [ ] new\n    . ID\n    ! 50\n\n" tf-ts-mode--separator
                            "\n\n- [ ] one\n\n# backlog\n\n- [ ] later\n")))))
 
 (ert-deftest tf-ts-mode-test-add-description ()
@@ -443,6 +448,96 @@
     (newline-and-indent)
     (tf-ts-mode-test--type "a : b")
     (should (equal (buffer-substring (line-beginning-position) (point-max)) "      a : b"))))
+
+(defun tf-ts-mode-test--snap (text typed)
+  "Type TYPED on a new line after TEXT (a header) and return the buffer."
+  (tf-ts-mode-test--with-buffer text
+    (newline-and-indent)
+    (tf-ts-mode-test--type typed)
+    (buffer-string)))
+
+(ert-deftest tf-ts-mode-test-snap-order ()
+  (let ((head "# todo\n\n- [ ] title\n"))
+    ;; each marker goes to its place among the others
+    (should (equal (tf-ts-mode-test--snap (concat head "    . 1\n    ; b\n    : t") "! 5")
+                   (concat head "    . 1\n    ! 5\n    ; b\n    : t")))
+    (should (equal (tf-ts-mode-test--snap (concat head "    ! 5\n    : t") "; b")
+                   (concat head "    ! 5\n    ; b\n    : t")))
+    (should (equal (tf-ts-mode-test--snap (concat head "    ! 5\n    ; b") ": t")
+                   (concat head "    ! 5\n    ; b\n    : t")))
+    (should (equal (tf-ts-mode-test--snap (concat head "    ! 5\n    : t") ". 1")
+                   (concat head "    . 1\n    ! 5\n    : t")))
+    ;; under a wrapped title the id goes after the last title line
+    (should (equal (tf-ts-mode-test--snap "# todo\n\n- [ ] title\n      wraps\n    : t" ". 1")
+                   "# todo\n\n- [ ] title\n      wraps\n    . 1\n    : t"))
+    ;; before a field
+    (should (equal (tf-ts-mode-test--snap "# todo\n\n- [ ] title\n    : t" "! 5")
+                   "# todo\n\n- [ ] title\n    ! 5\n    : t"))))
+
+(ert-deftest tf-ts-mode-test-snap-order-point-and-duplicates ()
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] title\n    : t\n"
+    (goto-char (point-min))
+    (search-forward "title")
+    (end-of-line)
+    (insert "\n")
+    (tf-ts-mode-test--type "! ")
+    (should (equal (buffer-string) "# todo\n\n- [ ] title\n    ! \n    : t\n"))
+    (should (looking-at "\n    : t")))
+  ;; a kind the task has stays where it is, indented
+  (should (equal (tf-ts-mode-test--snap "# todo\n\n- [ ] title\n    ! 5" "! ")
+                 "# todo\n\n- [ ] title\n    ! 5\n    ! ")))
+
+(ert-deftest tf-ts-mode-test-priority ()
+  (let ((head "# todo\n\n- [ ] title\n    . 1\n"))
+    (tf-ts-mode-test--with-buffer (concat head "    ! 50\n    : t\n")
+      (goto-char (point-min)) (search-forward "title")
+      (tf-ts-mode-priority-up)
+      (should (equal (buffer-string) (concat head "    ! 60\n    : t\n")))
+      (tf-ts-mode-priority-down) (tf-ts-mode-priority-down)
+      (should (equal (buffer-string) (concat head "    ! 40\n    : t\n"))))
+    ;; clamped to 0..100
+    (tf-ts-mode-test--with-buffer (concat head "    ! 95\n")
+      (goto-char (point-min)) (search-forward "title")
+      (tf-ts-mode-priority-up)
+      (should (equal (buffer-string) (concat head "    ! 100\n"))))
+    (tf-ts-mode-test--with-buffer (concat head "    ! 5\n")
+      (goto-char (point-min)) (search-forward "title")
+      (tf-ts-mode-priority-down)
+      (should (equal (buffer-string) (concat head "    ! 0\n"))))
+    ;; no priority line: from the default 50, after the id
+    (tf-ts-mode-test--with-buffer (concat head "    : t\n")
+      (goto-char (point-min)) (search-forward "title")
+      (tf-ts-mode-priority-up)
+      (should (equal (buffer-string) (concat head "    ! 60\n    : t\n"))))
+    ;; one undo step
+    (tf-ts-mode-test--with-buffer (concat head "    ! 50\n")
+      (buffer-enable-undo)
+      (goto-char (point-min)) (search-forward "title")
+      (undo-boundary)
+      (tf-ts-mode-priority-up)
+      (undo-boundary)
+      (primitive-undo 1 (cdr buffer-undo-list))
+      (should (equal (buffer-string) (concat head "    ! 50\n"))))))
+
+(ert-deftest tf-ts-mode-test-id-date ()
+  (should (equal (tf-ts-mode--id-date 1792321201) "2026-10-18T11:00:01Z"))
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] title\n    . 1792321201\n"
+    (goto-char (point-min)) (search-forward "title")
+    (let (shown)
+      (cl-letf (((symbol-function 'message) (lambda (f &rest a) (setq shown (apply #'format f a)))))
+        (tf-ts-mode-show-id-date))
+      (should (equal shown "1792321201 = 2026-10-18T11:00:01Z")))
+    (forward-line 1)
+    (should (equal (tf-ts-mode--eldoc) "2026-10-18T11:00:01Z")))
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] title\n"
+    (goto-char (point-min)) (search-forward "title")
+    (should-error (tf-ts-mode-show-id-date) :type 'user-error)))
+
+(ert-deftest tf-ts-mode-test-new-id-unique ()
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] a\n"
+    (let ((first (tf-ts-mode--new-id)))
+      (insert (format "    . %d\n" first))
+      (should (> (tf-ts-mode--new-id) first)))))
 
 ;;;; code: inline and fenced
 

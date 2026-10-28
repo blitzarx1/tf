@@ -304,3 +304,51 @@ inline code
       (entry_name)
       (entry_text
         (inline_code)))))
+
+================================================================================:sep
+property lines out of order
+================================================================================:sep
+# todo
+
+- [ ] misordered
+    ! 50
+    . 1792321201
+    : a
+    ; b
+    : again
+
+- [ ] after blank
+
+    . 1792321202
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (priority
+        (priority_marker)
+        (priority_value))
+      (stray_property
+        (stray_marker)
+        (text))
+      (stray_property
+        (stray_marker)
+        (text))
+      (stray_property
+        (stray_marker)
+        (text))
+      (stray_property
+        (stray_marker)
+        (text)))
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (stray_property
+        (stray_marker)
+        (text)))))

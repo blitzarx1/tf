@@ -13,6 +13,9 @@
 ;;                '(tfmd "https://github.com/blitzarx1/tf" nil "tree-sitter-tfmd"))
 ;;   (treesit-install-language-grammar 'tfmd)
 ;;
+;; A new task gets an id (the unix time) and priority 50.  A property marker (`. ', `! ', `; ' or
+;; `: ') typed on a header line moves the line to its place: id, priority, type, tags.
+;;
 ;; The mode keeps lines at 100 columns (auto-fill; the 101st column and beyond, trailing spaces and
 ;; tabs are highlighted),
 ;; indents with spaces only, and indents a line break to where the paragraph's text starts.
@@ -27,6 +30,9 @@
 ;;   s / a                 add a separator below / above the current task
 ;;   v                     move the task one stage on: backlog, todo, done, cancelled, backlog
 ;;   u                     run `.tf/update.sh' (after a confirmation)
+;;   i                     show the id of the task as an RFC3339 UTC date (eldoc does the same
+;;                         with point on the id line)
+;;   C-c h / C-c l         lower / raise the priority of the task by 10 (0 to 100)
 ;;   C-c SPC / C-c S-SPC   the same (separator below / above)
 ;;
 ;; Typing: a backtick pairs with its mate; a third backtick on an empty line makes a fenced block
@@ -115,7 +121,8 @@
      (code_line) @tf-ts-code-face)
 
    :language 'tfmd :feature 'error
-   '((invalid) @font-lock-warning-face))
+   '((invalid) @font-lock-warning-face
+     (stray_property) @font-lock-warning-face))
   "Tree-sitter font-lock rules for `tf-ts-mode'.")
 
 (defvar tf-ts-mode--inline-code-settings
@@ -391,9 +398,59 @@ top of the section."
              (equal (tf-ts-mode--section-heading section) "# todo"))
         (progn
           (goto-char (tf-ts-mode--last-line-end task))
-          (insert "\n\n" tf-ts-mode--separator "\n\n- [ ] "))
+          (insert "\n\n" tf-ts-mode--separator "\n\n- [ ] ")
+          (save-excursion (insert (tf-ts-mode--new-header-lines))))
       (goto-char (+ 6 (atomic-change-group
-                        (tf-ts-mode--insert-task-at-top "# todo" "- [ ] ")))))))
+                        (tf-ts-mode--insert-task-at-top
+                         "# todo" (concat "- [ ] " (tf-ts-mode--new-header-lines)))))))))
+
+(defun tf-ts-mode--new-header-lines ()
+  "Property lines of a new task: its id (the unix time now) and the default priority."
+  (format "\n    . %d\n    ! 50" (tf-ts-mode--new-id)))
+
+(defun tf-ts-mode--change-priority (delta)
+  "Add DELTA to the priority of the current task, within 0 to 100.
+A task without a priority line gets one, from the default 50."
+  (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
+         (line (tf-ts-mode--property-line task 1))
+         (value (if line
+                    (string-to-number (tf-ts-mode--property-value task 1))
+                  50))
+         (new (max 0 (min 100 (+ value delta)))))
+    (atomic-change-group
+      (if line
+          (progn (goto-char (+ 6 (car line)))
+                 (delete-region (point) (cadr line)))
+        (goto-char (tf-ts-mode--property-anchor
+                    (tf-ts-mode--header-layout (treesit-node-start task) nil) 1))
+        (insert "\n    ! "))
+      (insert (number-to-string new)))
+    (message "Priority %d" new)))
+
+(defun tf-ts-mode-priority-up ()
+  "Raise the priority of the current task by 10."
+  (interactive)
+  (tf-ts-mode--change-priority 10))
+
+(defun tf-ts-mode-priority-down ()
+  "Lower the priority of the current task by 10."
+  (interactive)
+  (tf-ts-mode--change-priority -10))
+
+(defun tf-ts-mode-show-id-date ()
+  "Show the id of the current task as an RFC3339 UTC date."
+  (interactive)
+  (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
+         (id (tf-ts-mode--property-value task 0)))
+    (unless (and id (string-match-p "\\`[0-9]+\\'" id)) (user-error "The task has no id"))
+    (message "%s = %s" id (tf-ts-mode--id-date (string-to-number id)))))
+
+(defun tf-ts-mode--eldoc (&rest _)
+  "Documentation function: the date of the id at point."
+  (when (save-excursion
+          (beginning-of-line)
+          (looking-at "    \\. \\([0-9]+\\)$"))
+    (tf-ts-mode--id-date (string-to-number (match-string 1)))))
 
 (defun tf-ts-mode--fields (task label)
   "Field nodes of TASK whose label is LABEL (\"D\" or \"C\"), or all fields when nil."
@@ -583,14 +640,96 @@ The task goes to the top of the next section, and its header changes to match."
 
 ;;;; Typing helpers
 
+(defconst tf-ts-mode--property-regexp "^    \\([.!;:]\\) "
+  "A property line of a task header: id, priority, type or tags.")
+
+(defconst tf-ts-mode--header-end-regexp
+  (concat "^\\(?:[ \t]*$\\|  [DC] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
+  "A line that ends the header region of a task: blank, a field, a heading, a task or a separator.")
+
+(defun tf-ts-mode--property-rank (char)
+  "Place of the property line with the marker CHAR in the header: id, priority, type, tags."
+  (pcase char (?. 0) (?! 1) (?\; 2) (?: 3)))
+
+(defun tf-ts-mode--header-start ()
+  "Start of the task header line above the current line, or nil.
+Only lines of the header region may lie in between: no blank lines, fields or headings."
+  (save-excursion
+    (beginning-of-line)
+    (catch 'found
+      (while (zerop (forward-line -1))
+        (cond ((looking-at "^- \\(\\[[ x]\\] \\|~~\\[ \\] \\)") (throw 'found (point)))
+              ((looking-at tf-ts-mode--header-end-regexp) (throw 'found nil)))))))
+
+(defun tf-ts-mode--header-layout (start skip)
+  "Layout of the header region of the task whose header line starts at START.
+Returns (TITLE-END . PROPERTIES): the end of the last title line, and the property lines as
+\(RANK BOL EOL) in buffer order.  The line starting at SKIP, if any, is left out."
+  (save-excursion
+    (goto-char start)
+    (let ((title-end (line-end-position)) props)
+      (while (and (zerop (forward-line 1))
+                  (not (looking-at tf-ts-mode--header-end-regexp)))
+        (cond ((eql (point) skip))
+              ((looking-at tf-ts-mode--property-regexp)
+               (push (list (tf-ts-mode--property-rank (char-after (+ (point) 4)))
+                           (point) (line-end-position))
+                     props))
+              ((null props) (setq title-end (line-end-position)))))
+      (cons title-end (nreverse props)))))
+
+(defun tf-ts-mode--property-anchor (layout rank)
+  "End of the line after which a property line of RANK goes, given the header LAYOUT."
+  (or (car (last (mapcar #'caddr (seq-filter (lambda (p) (< (car p) rank)) (cdr layout)))))
+      (car layout)))
+
 (defun tf-ts-mode--snap-property ()
-  "Indent the line to where a property line belongs once its marker is typed.
-After RET under a title the cursor sits at the title text, so a `: ' or `! ' typed there would
-read as a wrapped title line until the line is indented."
+  "Put the line to where its property belongs once its marker is typed.
+The header lines go in the order id, priority, type, tags, after the title.  After RET under a
+title the cursor sits at the title text, so a marker typed there would read as a wrapped title
+line; the line moves after the properties of lower rank (or the title) and is indented to 4.  A
+kind the task already has stays where it is, only indented."
   (when (and (eq last-command-event ?\s)
-             (string-match-p "\\`[ \t]*[.!;:] \\'"
-                             (buffer-substring-no-properties (line-beginning-position) (point))))
-    (indent-according-to-mode)))
+             (string-match "\\`[ \t]*\\([.!;:]\\) \\'"
+                           (buffer-substring-no-properties (line-beginning-position) (point))))
+    (let* ((char (aref (match-string 1 (buffer-substring-no-properties
+                                        (line-beginning-position) (point)))
+                       0))
+           (rank (tf-ts-mode--property-rank char))
+           (bol (line-beginning-position))
+           (start (tf-ts-mode--header-start))
+           (layout (and start (tf-ts-mode--header-layout start bol))))
+      (if (or (null layout)
+              (assq rank (cdr layout))
+              (= (1+ (tf-ts-mode--property-anchor layout rank)) bol))
+          (indent-according-to-mode)
+        (let ((anchor (copy-marker (tf-ts-mode--property-anchor layout rank))))
+          (delete-region (if (eobp) (1- bol) bol) (if (eobp) (point) (1+ (line-end-position))))
+          (goto-char anchor)
+          (set-marker anchor nil)
+          (insert "\n    " char " "))))))
+
+(defun tf-ts-mode--property-line (task rank)
+  "The header line of TASK (a node) with the property of RANK, as (BOL EOL), or nil."
+  (cdr (assq rank (cdr (tf-ts-mode--header-layout (treesit-node-start task) nil)))))
+
+(defun tf-ts-mode--property-value (task rank)
+  "Text after the marker of the property of RANK in TASK, or nil."
+  (when-let* ((line (tf-ts-mode--property-line task rank)))
+    (string-trim (buffer-substring-no-properties (+ 6 (car line)) (cadr line)))))
+
+(defun tf-ts-mode--new-id ()
+  "A task id for now: the unix time, raised until no task of the buffer has it."
+  (let ((id (floor (float-time))))
+    (while (save-excursion
+             (goto-char (point-min))
+             (re-search-forward (format "^    \\. %d$" id) nil t))
+      (setq id (1+ id)))
+    id))
+
+(defun tf-ts-mode--id-date (id)
+  "RFC3339 UTC date of the unix time ID."
+  (format-time-string "%Y-%m-%dT%H:%M:%SZ" id t))
 
 ;;;; Backticks
 
@@ -639,6 +778,9 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   "C-c C-a" #'tf-ts-mode-separator-above
   "C-c C-v" #'tf-ts-mode-advance-task
   "C-c C-u" #'tf-ts-mode-update
+  "C-c C-i" #'tf-ts-mode-show-id-date
+  "C-c h" #'tf-ts-mode-priority-down
+  "C-c l" #'tf-ts-mode-priority-up
   "C-c SPC" #'tf-ts-mode-separator-below
   "C-c S-SPC" #'tf-ts-mode-separator-above)
 
@@ -658,6 +800,7 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   (setq-local display-fill-column-indicator-column tf-ts-mode-column-limit)
   (treesit-major-mode-setup)
   (font-lock-add-keywords nil (tf-ts-mode--violation-keywords) 'append)
+  (add-hook 'eldoc-documentation-functions #'tf-ts-mode--eldoc nil t)
   (add-hook 'post-self-insert-hook #'tf-ts-mode--snap-property nil t)
   (add-hook 'post-self-insert-hook #'tf-ts-mode--electric-backtick nil t)
   (auto-fill-mode 1)

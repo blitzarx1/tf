@@ -212,21 +212,68 @@
         {
           "type": "REPEAT",
           "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "text_line"
+            },
+            "named": true,
+            "value": "title_continuation"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "id"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "priority"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "type"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "tags"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "REPEAT",
+          "content": {
             "type": "CHOICE",
             "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "text_line"
-                },
-                "named": true,
-                "value": "title_continuation"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "_property"
-              },
               {
                 "type": "SYMBOL",
                 "name": "_blank"
@@ -234,6 +281,10 @@
               {
                 "type": "SYMBOL",
                 "name": "_invalid_line"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "stray_property"
               }
             ]
           }
@@ -293,26 +344,41 @@
       "type": "SYMBOL",
       "name": "_inline"
     },
-    "_property": {
-      "type": "CHOICE",
+    "stray_property": {
+      "type": "SEQ",
       "members": [
         {
           "type": "SYMBOL",
-          "name": "id"
+          "name": "stray_marker"
         },
         {
-          "type": "SYMBOL",
-          "name": "priority"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "text"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
-          "type": "SYMBOL",
-          "name": "type"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "tags"
+          "type": "STRING",
+          "value": "\n"
         }
       ]
+    },
+    "stray_marker": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": -1,
+        "content": {
+          "type": "PATTERN",
+          "value": "    [.!;:] "
+        }
+      }
     },
     "id": {
       "type": "SEQ",
@@ -332,8 +398,15 @@
       ]
     },
     "id_marker": {
-      "type": "PATTERN",
-      "value": "    \\. "
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "PATTERN",
+          "value": "    \\. "
+        }
+      }
     },
     "id_value": {
       "type": "PATTERN",
@@ -357,8 +430,15 @@
       ]
     },
     "priority_marker": {
-      "type": "PATTERN",
-      "value": "    ! "
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "PATTERN",
+          "value": "    ! "
+        }
+      }
     },
     "priority_value": {
       "type": "PATTERN",
@@ -382,8 +462,15 @@
       ]
     },
     "type_marker": {
-      "type": "PATTERN",
-      "value": "    ; "
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "PATTERN",
+          "value": "    ; "
+        }
+      }
     },
     "type_value": {
       "type": "PATTERN",
@@ -423,8 +510,15 @@
       ]
     },
     "tags_marker": {
-      "type": "PATTERN",
-      "value": "    : "
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "PATTERN",
+          "value": "    : "
+        }
+      }
     },
     "tag": {
       "type": "PATTERN",

@@ -37,3 +37,4 @@
 (inline_code) @markup.raw
 
 (invalid) @error
+(stray_property) @error

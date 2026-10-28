@@ -33,6 +33,10 @@ and a lowercase word. Tags: `: ` and the tags, comma-separated.
 
 A long title wraps onto lines indented 4 spaces, before the property lines.
 
+The title is one sentence that starts with a lowercase letter; it can wrap over several lines but
+has no empty lines. The id is a unix timestamp in seconds (UTC), unique within the file; it reads
+as an RFC3339 date, so `. 1792321201` is `2026-10-18T11:00:01Z`.
+
 ## task state
 
 ```
