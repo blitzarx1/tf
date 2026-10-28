@@ -92,6 +92,20 @@ is in `skill/base.md`.
 This replaces `skill/`, `VERSION` and `update.sh` with the latest versions and prints the version
 change. It never touches `tasks.tfmd`.
 
+## Emacs
+
+`emacs/tf-ts-mode.el` is a major mode for `.tfmd` files (needs the `tree-sitter-tfmd` grammar).
+Keys, all under `C-c C-`:
+
+| Key | Does |
+|---|---|
+| `n` / `p` | next / previous task |
+| `t` | new task below the current one |
+| `d` / `m` | add a `D : ` description / a `C : ` comment |
+| `s` / `a` | separator below / above the task |
+| `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog |
+| `u` | run `.tf/update.sh` after a confirmation |
+
 ## Files
 
 | File | What |

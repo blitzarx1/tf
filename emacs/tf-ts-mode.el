@@ -18,11 +18,13 @@
 ;; indents with spaces only, and indents a line break to where the paragraph's text starts.
 ;;
 ;; Keys (prefix C-c C-):
-;;   n / p   next / previous task
-;;   t       new task below the current one
-;;   d       add a `D :' field (or a new paragraph in the existing one)
-;;   m       add a `C :' field (comment)
-;;   s / a   add a separator below / above the current task
+;;   n / p                 next / previous task
+;;   t                     new task below the current one
+;;   d                     add a `D :' field (or a new paragraph in the existing one)
+;;   m                     add a `C :' field (comment)
+;;   s / a                 add a separator below / above the current task
+;;   v                     move the task one stage on: backlog, todo, done, cancelled, backlog
+;;   u                     run `.tf/update.sh' (after a confirmation)
 ;;   C-c SPC / C-c S-SPC   the same (separator below / above)
 
 ;;; Code:
@@ -31,6 +33,7 @@
 (require 'subr-x)
 (require 'cl-lib)
 (require 'seq)
+(require 'compile)
 
 (declare-function treesit-node-at "treesit.c")
 (declare-function treesit-node-type "treesit.c")
@@ -407,6 +410,139 @@ Stops at the first line that is not part of a list in a field."
       (forward-line 1))
     (forward-line 2)))
 
+;;;; Moving tasks between stages
+
+(defun tf-ts-mode--section-heading (section)
+  "Text of the heading node of SECTION, a task_section node."
+  (treesit-node-text (tf-ts-mode--child section "heading") t))
+
+(defun tf-ts-mode--next-stage (heading state)
+  "The stage after the one of a task in section HEADING with STATE, as (HEADING . STATE).
+The loop is backlog, todo, done, cancelled (kept in done), back to backlog."
+  (cond
+   ((equal state "state_cancelled") '("# backlog" . "state_open"))
+   ((equal state "state_done") '("# done" . "state_cancelled"))
+   ((equal heading "# backlog") '("# todo" . "state_open"))
+   ((equal heading "# todo") '("# done" . "state_done"))
+   (t (user-error "Cannot advance an open task in %s" heading))))
+
+(defun tf-ts-mode--cut-task (task)
+  "Delete TASK with the separator next to it and return its text and last title line end.
+The second value is the offset in the text where the title ends."
+  (let* ((start (treesit-node-start task))
+         (end (tf-ts-mode--last-line-end task))
+         (title-end (save-excursion
+                      (goto-char (treesit-node-end
+                                  (or (car (last (treesit-filter-child
+                                                  task (lambda (c) (equal (treesit-node-type c)
+                                                                          "title_continuation")))))
+                                      (tf-ts-mode--child (tf-ts-mode--child task "task_header")
+                                                         "title"))))
+                      (skip-chars-backward "\n")
+                      (point)))
+         (text (buffer-substring-no-properties start end))
+         (sep-after (concat "\n+" tf-ts-mode--separator "\n+"))
+         (sep-before (concat "^" tf-ts-mode--separator "\n+\\="))
+         from to)
+    (goto-char end)
+    (cond
+     ((looking-at sep-after) (setq from start to (match-end 0)))
+     ((save-excursion (goto-char start) (re-search-backward sep-before nil t))
+      (setq from (save-excursion (goto-char (match-beginning 0))
+                                 (skip-chars-backward " \t\n")
+                                 (point))
+            to end))
+     (t (setq from start to (progn (skip-chars-forward "\n") (point)))))
+    (delete-region from to)
+    ;; a section emptied at the end of the file keeps its heading and one newline
+    (when (and (eobp) (not (bobp)))
+      (let ((p (point)))
+        (skip-chars-backward "\n")
+        (delete-region (point) p)
+        (insert "\n")))
+    (cons text (- title-end start))))
+
+(defun tf-ts-mode--restate (text title-end from to)
+  "TEXT of a task with its state changed from the node type FROM to TO.
+TITLE-END is the offset where its last title line ends."
+  (let ((prefix (if (equal from "state_cancelled") 8 6))
+        (rest (substring text title-end)))
+    (concat (pcase to
+              ("state_open" "- [ ] ")
+              ("state_done" "- [x] ")
+              (_ "- ~~[ ] "))
+            (let ((title (substring text prefix title-end)))
+              (if (equal from "state_cancelled") (string-remove-suffix "~~" title) title))
+            (if (equal to "state_cancelled") "~~" "")
+            rest)))
+
+(defun tf-ts-mode--insert-task-at-top (heading text)
+  "Insert TEXT as the first task of the section HEADING, with a separator after it.
+Returns the position of TEXT."
+  (let* ((section (or (seq-find (lambda (n) (and (equal (treesit-node-type n) "task_section")
+                                                 (equal (tf-ts-mode--section-heading n) heading)))
+                                (treesit-node-children (treesit-buffer-root-node 'tfmd)))
+                      (user-error "No %s section" heading)))
+         (has-tasks (treesit-filter-child
+                     section (lambda (c)
+                               (member (treesit-node-type c) '("task" "separator_line")))))
+         (from (treesit-node-end (tf-ts-mode--child section "heading")))
+         (to (save-excursion
+               (goto-char from)
+               (skip-chars-forward " \t\n")
+               (point))))
+    (delete-region from to)
+    (goto-char from)
+    (insert "\n\n")
+    (prog1 (point)
+      (insert text
+              (cond (has-tasks (concat "\n\n" tf-ts-mode--separator "\n\n"))
+                    ((eobp) "\n")
+                    (t "\n\n"))))))
+
+(defun tf-ts-mode-advance-task ()
+  "Move the current task one stage on: backlog, todo, done, cancelled, and back to backlog.
+The task goes to the top of the next section, and its header changes to match."
+  (interactive)
+  (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
+         (section (treesit-node-parent task))
+         (state (treesit-node-type
+                 (treesit-node-child (tf-ts-mode--child task "task_header") 0))))
+    (unless (equal (treesit-node-type section) "task_section") (user-error "Not in a task"))
+    (let* ((next (tf-ts-mode--next-stage (tf-ts-mode--section-heading section) state))
+           pos)
+      (atomic-change-group
+        (let ((cut (tf-ts-mode--cut-task task)))
+          (setq pos (tf-ts-mode--insert-task-at-top
+                     (car next)
+                     (tf-ts-mode--restate (car cut) (cdr cut) state (cdr next))))))
+      (goto-char pos))))
+
+;;;; Updating tf
+
+(defun tf-ts-mode--after-update (buffer _status)
+  "Revert the open tf buffers once the update in BUFFER has finished."
+  (when (equal (buffer-name buffer) "*tf update*")
+    (remove-hook 'compilation-finish-functions #'tf-ts-mode--after-update)
+    (dolist (b (buffer-list))
+      (with-current-buffer b
+        (when (and (derived-mode-p 'tf-ts-mode) buffer-file-name)
+          (if (buffer-modified-p)
+              (message "tf: %s has unsaved changes, not reverted" (buffer-name))
+            (revert-buffer t t t)))))))
+
+(defun tf-ts-mode-update ()
+  "After a confirmation, run `.tf/update.sh' of the project and show its output."
+  (interactive)
+  (let* ((root (or (locate-dominating-file default-directory ".tf/tasks.tfmd")
+                   (user-error "No .tf/tasks.tfmd in this or a parent directory")))
+         (script (expand-file-name ".tf/update.sh" root)))
+    (unless (file-executable-p script) (user-error "No executable %s" script))
+    (when (yes-or-no-p (format "Run %s? " script))
+      (let ((default-directory root))
+        (add-hook 'compilation-finish-functions #'tf-ts-mode--after-update)
+        (compilation-start ".tf/update.sh" nil (lambda (_) "*tf update*"))))))
+
 ;;;; Mode
 
 (defvar-keymap tf-ts-mode-map
@@ -418,6 +554,8 @@ Stops at the first line that is not part of a list in a field."
   "C-c C-m" #'tf-ts-mode-add-comment
   "C-c C-s" #'tf-ts-mode-separator-below
   "C-c C-a" #'tf-ts-mode-separator-above
+  "C-c C-v" #'tf-ts-mode-advance-task
+  "C-c C-u" #'tf-ts-mode-update
   "C-c SPC" #'tf-ts-mode-separator-below
   "C-c S-SPC" #'tf-ts-mode-separator-above)
 
