@@ -21,10 +21,9 @@
 ;; indents with spaces only, and indents a line break to where the paragraph's text starts.
 ;;
 ;; Keys (prefix C-c C-):
-;;   C-c t                 new task in `# todo' from anywhere: below the current task if it is in
-;;                         `# todo', else at the top of the section
 ;;   n / p                 next / previous task
-;;   t                     the same as C-c t
+;;   t                     new task in `# todo' from anywhere: below the current task if it is in
+;;                         `# todo', else at the top of the section
 ;;   d                     add a `D :' field (or a new paragraph in the existing one)
 ;;   m                     add a `C :' field (comment)
 ;;   s / a                 add a separator below / above the current task
@@ -32,7 +31,7 @@
 ;;   u                     run `.tf/update.sh' (after a confirmation)
 ;;   i                     show the id of the task as an RFC3339 UTC date (eldoc does the same
 ;;                         with point on the id line)
-;;   C-c h / C-c l         lower / raise the priority of the task by 10 (0 to 100)
+;;   h / l                 raise / lower the priority of the task by 10 (0 to 100)
 ;;   C-c SPC / C-c S-SPC   the same (separator below / above)
 ;;
 ;; Typing: a backtick pairs with its mate; a third backtick on an empty line makes a fenced block
@@ -768,10 +767,11 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
 
 (defvar-keymap tf-ts-mode-map
   :doc "Keymap for `tf-ts-mode'."
-  "C-c t" #'tf-ts-mode-new
   "C-c C-n" #'tf-ts-mode-next-task
   "C-c C-p" #'tf-ts-mode-previous-task
   "C-c C-t" #'tf-ts-mode-new
+  "C-c C-h" #'tf-ts-mode-priority-up
+  "C-c C-l" #'tf-ts-mode-priority-down
   "C-c C-d" #'tf-ts-mode-add-description
   "C-c C-m" #'tf-ts-mode-add-comment
   "C-c C-s" #'tf-ts-mode-separator-below
@@ -779,8 +779,6 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   "C-c C-v" #'tf-ts-mode-advance-task
   "C-c C-u" #'tf-ts-mode-update
   "C-c C-i" #'tf-ts-mode-show-id-date
-  "C-c h" #'tf-ts-mode-priority-down
-  "C-c l" #'tf-ts-mode-priority-up
   "C-c SPC" #'tf-ts-mode-separator-below
   "C-c S-SPC" #'tf-ts-mode-separator-above)
 

@@ -103,13 +103,14 @@ Keys, all under `C-c C-`:
 |---|---|
 | `n` / `p` | next / previous task |
 | `t` | new task below the current one, with an id and priority 50 |
+| `h` / `l` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
 | `s` / `a` | separator below / above the task |
 | `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog |
 | `u` | run `.tf/update.sh` after a confirmation |
 | `i` | show the task's id as a date (also shown by eldoc on the id line) |
 
-`C-c h` / `C-c l` lower / raise the priority of the task by 10. Typing `. `, `! `, `; ` or `: ` on a
+Typing `. `, `! `, `; ` or `: ` on a
 header line moves it to its place in the header.
 
 Typing backticks helps too: one pairs (`` ` `` becomes a pair with the cursor between), the second
