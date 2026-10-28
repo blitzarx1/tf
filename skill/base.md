@@ -68,6 +68,20 @@ parent's text.
          * nested item
 ```
 
+Inline code goes in single backticks, on one line: `` `code` ``. A code block is three backticks
+on their own line, the code lines 4 columns deeper, and three backticks again, with no language
+tag. The fences go where the field's text starts (column 6; column 0 in `# tags` and
+`# commands`).
+
+```
+  C : Text before the block.
+
+      ```
+          code line 1
+          code line 2
+      ```
+```
+
 ## tags
 
 Standard set of tags for marking tasks:

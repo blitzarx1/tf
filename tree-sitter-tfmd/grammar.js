@@ -72,7 +72,7 @@ export default grammar({
     state_open: $ => "- [ ] ",
     state_done: $ => "- [x] ",
     state_cancelled: $ => "- ~~[ ] ",
-    title: $ => /[^\n]+/,
+    title: $ => $._inline,
 
     // Optional lines under the header, in this order: id, priority, type, tags.
     _property: $ => choice($.id, $.priority, $.type, $.tags),
@@ -98,14 +98,19 @@ export default grammar({
     _text_field: $ => $._field_head,
     _field_head: $ => seq($.field_label, optional($.field_text), "\n"),
     field_label: $ => /  [DC] : ?/,
-    field_text: $ => /[^\n]+/,
+    field_text: $ => $._inline,
+
+    // Running text: plain chunks and single-line `inline code`. A lone or unclosed backtick is plain.
+    _inline: $ => repeat1(choice($.inline_code, $._plain)),
+    inline_code: $ => /`[^`\n]+`/,
+    _plain: $ => /[^`\n]+|`/,
 
     // Lines indented by 4+ spaces inside a field (or under a header, for a wrapped title).
     text_line: $ => seq($._indent, $.text, "\n"),
     list_item: $ => seq($.list_marker, $.text, "\n"),
     _indent: $ => /    [ ]*/,
     list_marker: $ => /    [ ]*([*-]|[0-9]+\.) /,
-    text: $ => /[^\n]+/,
+    text: $ => $._inline,
 
     // Lines the format forbids: any tab, an indent of exactly 1 or 3 spaces, a line of only
     // spaces. They become a single node so that the rest of the file keeps parsing.
@@ -132,7 +137,7 @@ export default grammar({
     ),
     entry_marker: $ => "- ",
     entry_name: $ => /`[^`\n]+`|[^\s`]+/,
-    entry_text: $ => /[^\n]+/,
+    entry_text: $ => $._inline,
     _space: $ => / +/,
     prose: $ => /[^\s\-#`][^\n]*|`[^`\n][^\n]*|``[^`\n][^\n]*/,
   },

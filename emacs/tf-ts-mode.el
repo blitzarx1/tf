@@ -26,6 +26,10 @@
 ;;   v                     move the task one stage on: backlog, todo, done, cancelled, backlog
 ;;   u                     run `.tf/update.sh' (after a confirmation)
 ;;   C-c SPC / C-c S-SPC   the same (separator below / above)
+;;
+;; Typing: a backtick pairs with its mate; a third backtick on an empty line makes a fenced block
+;; (the fences on their own lines, the code line between them 4 columns deeper).  `inline code'
+;; and fenced blocks are highlighted monospace.
 
 ;;; Code:
 
@@ -54,6 +58,10 @@
   "Face for the text after the column limit (the 101st column and beyond).")
 (defface tf-ts-tab-face '((t :inherit whitespace-tab))
   "Face for tabs, which the format forbids.")
+(defface tf-ts-code-face
+  '((((background light)) :inherit fixed-pitch :background "grey92")
+    (((background dark)) :inherit fixed-pitch :background "grey22"))
+  "Face for inline code and fenced blocks: monospace on a subtle background.")
 (defface tf-ts-cancelled-face '((t :inherit shadow :strike-through t))
   "Face for titles of cancelled tasks.")
 
@@ -100,13 +108,26 @@
      (entry_name) @font-lock-constant-face)
 
    :language 'tfmd :feature 'code
-   '((fence_open) @font-lock-delimiter-face
-     (fence_close) @font-lock-delimiter-face
-     (code_line) @font-lock-string-face)
+   '((fence_open) @tf-ts-code-face
+     (fence_close) @tf-ts-code-face
+     (code_line) @tf-ts-code-face)
 
    :language 'tfmd :feature 'error
    '((invalid) @font-lock-warning-face))
   "Tree-sitter font-lock rules for `tf-ts-mode'.")
+
+(defvar tf-ts-mode--inline-code-settings
+  (treesit-font-lock-rules
+   :language 'tfmd :feature 'code :override 'append
+   '((inline_code) @tf-ts-code-face))
+  "Font-lock rule for `inline code', kept apart: a grammar built before it knew the node would
+make the whole query fail.")
+
+(defun tf-ts-mode--font-lock-settings ()
+  "Font-lock settings fitting the installed grammar."
+  (append tf-ts-mode--font-lock-settings
+          (when (treesit-query-valid-p 'tfmd '((inline_code) @x))
+            tf-ts-mode--inline-code-settings)))
 
 ;;;; Format violations
 
@@ -167,7 +188,9 @@ Returns nil for NODE nil."
         (tf-ts-mode--column-at (treesit-node-start (tf-ts-mode--child node "text"))))
        ((equal type "field_label") 6)
        ((member type '("id" "priority" "type" "tags")) 2)
-       ((member type '("fence_open" "code_line"))
+       ((equal type "fence_open")
+        (+ 4 (save-excursion (goto-char (treesit-node-start node)) (current-indentation))))
+       ((equal type "code_line")
         (save-excursion (goto-char (treesit-node-start node)) (current-indentation)))
        ((equal type "fence_close") 6)
        (t 0)))))
@@ -247,7 +270,11 @@ Stops at the first line that is not part of a list in a field."
      ;; inside a fenced block the content is opaque: keep it, a closing fence matches its opener
      (code
       (cond ((and text (string-match-p "\\``\\{3\\}" text)) (tf-ts-mode--opening-fence-indentation))
-            (blank (save-excursion (forward-line -1) (current-indentation)))
+            (blank (save-excursion
+                     (forward-line -1)
+                     ;; the line under an opening fence is the code, 4 columns deeper
+                     (+ (current-indentation)
+                        (if (looking-at tf-ts-mode--fence-regexp) 4 0))))
             (t (current-indentation))))
      ;; blank line: where the paragraph above puts its text
      (blank
@@ -261,7 +288,7 @@ Stops at the first line that is not part of a list in a field."
       0)
      ((string-match-p "\\`[DC] :\\( \\|\\'\\)" text) 2)
      ((and in-header (string-match-p "\\`[.!;:] " text)) 4)
-     ((string-match-p "\\``\\{3\\}" text) (if in-field 4 0))
+     ((string-match-p "\\``\\{3\\}" text) (if in-field 6 0))
      ((string-match-p "\\`\\([*-]\\|[0-9]+\\.\\) " text)
       (if (not in-field)
           0
@@ -554,6 +581,39 @@ read as a wrapped title line until the line is indented."
                              (buffer-substring-no-properties (line-beginning-position) (point))))
     (indent-according-to-mode)))
 
+;;;; Backticks
+
+(defun tf-ts-mode--electric-backtick ()
+  "Help typing code: pair single backticks, make the third one a fenced block.
+Nothing happens inside a fenced block.  A backtick typed before whitespace, the end of the line
+or closing punctuation, not after a word, inserts its closing mate; typing the closing one
+steps over the mate.  A third backtick on a line holding only two backticks turns the line into
+a fenced block: the fences on their own lines, the code line between them 4 columns deeper."
+  (when (and (eq last-command-event ?`)
+             (not (cl-oddp (tf-ts-mode--fences-above))))
+    (let* ((before (buffer-substring-no-properties (line-beginning-position) (1- (point))))
+           (ticks (cl-count ?` before))
+           (next (char-after)))
+      (cond
+       ((string-match-p "\\`[ \t]*``\\'" before)
+        (delete-region (line-beginning-position) (point))
+        (insert "```")
+        (indent-according-to-mode)
+        (let ((column (current-indentation)))
+          (end-of-line)
+          (insert "\n" (make-string (+ column 4) ?\s) "\n" (make-string column ?\s) "```")
+          (forward-line -1)
+          (end-of-line)))
+       ((and (cl-oddp ticks) (eq next ?`))
+        (delete-char -1)
+        (forward-char 1))
+       ((and (cl-evenp ticks)
+             (or (null next) (memq next '(?\s ?\t ?\n ?\) ?\] ?\} ?, ?. ?\; ?: ?! ??)))
+             (not (and (> (length before) 0)
+                       (eq (char-syntax (aref before (1- (length before)))) ?w))))
+        (insert "`")
+        (backward-char))))))
+
 ;;;; Mode
 
 (defvar-keymap tf-ts-mode-map
@@ -576,7 +636,7 @@ read as a wrapped title line until the line is indented."
   (unless (treesit-ready-p 'tfmd)
     (error "The tfmd tree-sitter grammar is not available"))
   (treesit-parser-create 'tfmd)
-  (setq-local treesit-font-lock-settings tf-ts-mode--font-lock-settings)
+  (setq-local treesit-font-lock-settings (tf-ts-mode--font-lock-settings))
   (setq-local treesit-font-lock-feature-list
               '((heading separator state) (title property field list code) (error)))
   (setq-local treesit-simple-indent-rules tf-ts-mode--indent-rules)
@@ -587,6 +647,7 @@ read as a wrapped title line until the line is indented."
   (treesit-major-mode-setup)
   (font-lock-add-keywords nil (tf-ts-mode--violation-keywords) 'append)
   (add-hook 'post-self-insert-hook #'tf-ts-mode--snap-property nil t)
+  (add-hook 'post-self-insert-hook #'tf-ts-mode--electric-backtick nil t)
   (auto-fill-mode 1)
   (display-fill-column-indicator-mode 1))
 

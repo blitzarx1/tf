@@ -290,8 +290,8 @@
       "value": "- ~~[ ] "
     },
     "title": {
-      "type": "PATTERN",
-      "value": "[^\\n]+"
+      "type": "SYMBOL",
+      "name": "_inline"
     },
     "_property": {
       "type": "CHOICE",
@@ -505,8 +505,32 @@
       "value": "  [DC] : ?"
     },
     "field_text": {
+      "type": "SYMBOL",
+      "name": "_inline"
+    },
+    "_inline": {
+      "type": "REPEAT1",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "inline_code"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_plain"
+          }
+        ]
+      }
+    },
+    "inline_code": {
       "type": "PATTERN",
-      "value": "[^\\n]+"
+      "value": "`[^`\\n]+`"
+    },
+    "_plain": {
+      "type": "PATTERN",
+      "value": "[^`\\n]+|`"
     },
     "text_line": {
       "type": "SEQ",
@@ -551,8 +575,8 @@
       "value": "    [ ]*([*-]|[0-9]+\\.) "
     },
     "text": {
-      "type": "PATTERN",
-      "value": "[^\\n]+"
+      "type": "SYMBOL",
+      "name": "_inline"
     },
     "_invalid_line": {
       "type": "SEQ",
@@ -722,8 +746,8 @@
       "value": "`[^`\\n]+`|[^\\s`]+"
     },
     "entry_text": {
-      "type": "PATTERN",
-      "value": "[^\\n]+"
+      "type": "SYMBOL",
+      "name": "_inline"
     },
     "_space": {
       "type": "PATTERN",

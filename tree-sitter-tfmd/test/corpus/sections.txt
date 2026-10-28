@@ -262,3 +262,45 @@ forbidden lines stay local
       (task_header
         (state_open)
         (title)))))
+
+================================================================================:sep
+inline code
+================================================================================:sep
+# todo
+
+- [ ] title with `code` and an unclosed ` tick
+
+  D : text with `one` and ``double`` ticks
+
+      * item with `code`
+
+# tags
+
+- `name` meaning with `code`
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title
+          (inline_code)))
+      (field
+        (field_label)
+        (field_text
+          (inline_code)
+          (inline_code))
+        (list_item
+          (list_marker)
+          (text
+            (inline_code))))))
+  (text_section
+    (heading)
+    (entry
+      (entry_marker)
+      (entry_name)
+      (entry_text
+        (inline_code)))))

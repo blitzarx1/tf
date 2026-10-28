@@ -31,10 +31,10 @@
 
   C : comment
 
-    ```markdown
-    - [ ] example
-        ! 100
-    ```
+      ```
+          - [ ] example
+              ! 100
+      ```
 
 --------------------------------
 
@@ -113,8 +113,10 @@
   (should (= 11 (tf-ts-mode-test--column-after-ret
                  "# todo\n\n- [ ] t\n\n  D : x\n\n      1. a\n         * nested")))
   (should (= 2 (tf-ts-mode-test--column-after-ret "# todo\n\n- [ ] t\n    ! 5")))
-  (should (= 4 (tf-ts-mode-test--column-after-ret
-                "# todo\n\n- [ ] t\n\n  D : x\n\n    ```\n    code"))))
+  (should (= 10 (tf-ts-mode-test--column-after-ret
+                 "# todo\n\n- [ ] t\n\n  D : x\n\n      ```\n          code")))
+  (should (= 10 (tf-ts-mode-test--column-after-ret
+                 "# todo\n\n- [ ] t\n\n  D : x\n\n      ```"))))
 
 (ert-deftest tf-ts-mode-test-ret-after-blank-line ()
   (should (= 6 (tf-ts-mode-test--column-after-ret "# todo\n\n- [ ] t\n\n  D : text\n")))
@@ -129,7 +131,7 @@
       (should (equal (buffer-string) text)))))
 
 (ert-deftest tf-ts-mode-test-text-after-column-zero-fence ()
-  (let ((text "# commands\n\n```\n- `tf x`\n```\n\nText after the template.\n"))
+  (let ((text "# commands\n\n```\n    - `tf x`\n```\n\nText after the template.\n"))
     (tf-ts-mode-test--with-buffer text
       (indent-region (point-min) (point-max))
       (should (equal (buffer-string) text)))))
@@ -430,6 +432,79 @@
     (newline-and-indent)
     (tf-ts-mode-test--type "a : b")
     (should (equal (buffer-substring (line-beginning-position) (point-max)) "      a : b"))))
+
+;;;; code: inline and fenced
+
+(defun tf-ts-mode-test--face-at (text word)
+  "Face of the last character of WORD in TEXT, in a fontified `tf-ts-mode' buffer."
+  (with-temp-buffer
+    (insert text)
+    (tf-ts-mode)
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward word)
+    (get-text-property (1- (point)) 'face)))
+
+(defun tf-ts-mode-test--has-face (face prop)
+  (memq face (if (listp prop) prop (list prop))))
+
+(ert-deftest tf-ts-mode-test-code-faces ()
+  (let ((text (concat "# todo\n\n- [ ] title `code` end\n\n  D : x `inline` y\n\n"
+                      "      ```\n          (foo)\n      ```\n")))
+    (should (tf-ts-mode-test--has-face 'tf-ts-code-face (tf-ts-mode-test--face-at text "code`")))
+    ;; layered over the title face
+    (should (tf-ts-mode-test--has-face 'tf-ts-title-face (tf-ts-mode-test--face-at text "code`")))
+    (should (tf-ts-mode-test--has-face 'tf-ts-code-face (tf-ts-mode-test--face-at text "inline`")))
+    (should-not (tf-ts-mode-test--has-face 'tf-ts-code-face (tf-ts-mode-test--face-at text " end")))
+    (should (tf-ts-mode-test--has-face 'tf-ts-code-face (tf-ts-mode-test--face-at text "(foo)")))
+    (should (tf-ts-mode-test--has-face 'tf-ts-code-face
+                                       (tf-ts-mode-test--face-at text "      ```")))))
+
+(ert-deftest tf-ts-mode-test-unclosed-backtick-is-plain ()
+  (should-not (tf-ts-mode-test--has-face
+               'tf-ts-code-face
+               (tf-ts-mode-test--face-at "# todo\n\n- [ ] a ` b c\n" "b c"))))
+
+(defun tf-ts-mode-test--typed (text typed)
+  "Buffer text and the text before point after typing TYPED at the end of TEXT."
+  (tf-ts-mode-test--with-buffer text
+    (tf-ts-mode-test--type typed)
+    (list (buffer-string) (buffer-substring (line-beginning-position) (point)))))
+
+(ert-deftest tf-ts-mode-test-backtick-pairs ()
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] a "
+    (tf-ts-mode-test--type "`")
+    (should (equal (buffer-string) "# todo\n\n- [ ] a ``"))
+    (should (looking-at "`\\'"))))
+
+(ert-deftest tf-ts-mode-test-backtick-typing-flow ()
+  (should (equal (tf-ts-mode-test--typed "# todo\n\n- [ ] a " "`x`")
+                 '("# todo\n\n- [ ] a `x`" "- [ ] a `x`")))
+  ;; after a word character a backtick stays alone
+  (should (equal (car (tf-ts-mode-test--typed "# todo\n\n- [ ] a" "`"))
+                 "# todo\n\n- [ ] a`")))
+
+(ert-deftest tf-ts-mode-test-three-backticks-make-a-block ()
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] t\n\n  D : x\n\n"
+    (tf-ts-mode-test--type "```")
+    (should (equal (buffer-string)
+                   "# todo\n\n- [ ] t\n\n  D : x\n\n      ```\n          \n      ```"))
+    (should (= (current-column) 10))
+    (should (equal (buffer-substring (line-beginning-position) (point)) "          ")))
+  (tf-ts-mode-test--with-buffer "# commands\n\n"
+    (tf-ts-mode-test--type "```")
+    (should (equal (buffer-string) "# commands\n\n```\n    \n```"))
+    (should (= (current-column) 4))))
+
+(ert-deftest tf-ts-mode-test-no-pairing-inside-a-block ()
+  (tf-ts-mode-test--with-buffer "# commands\n\n```\n    "
+    (tf-ts-mode-test--type "`")
+    (should (equal (buffer-string) "# commands\n\n```\n    `"))))
+
+(ert-deftest tf-ts-mode-test-ret-in-block-keeps-code-column ()
+  (tf-ts-mode-test--with-buffer "# commands\n\n```\n    code"
+    (newline-and-indent)
+    (should (= (current-column) 4))))
 
 (provide 'tf-ts-mode-test)
 
