@@ -543,6 +543,17 @@ The task goes to the top of the next section, and its header changes to match."
         (add-hook 'compilation-finish-functions #'tf-ts-mode--after-update)
         (compilation-start ".tf/update.sh" nil (lambda (_) "*tf update*"))))))
 
+;;;; Typing helpers
+
+(defun tf-ts-mode--snap-property ()
+  "Indent the line to where a property line belongs once its marker is typed.
+After RET under a title the cursor sits at the title text, so a `: ' or `! ' typed there would
+read as a wrapped title line until the line is indented."
+  (when (and (eq last-command-event ?\s)
+             (string-match-p "\\`[ \t]*[.!;:] \\'"
+                             (buffer-substring-no-properties (line-beginning-position) (point))))
+    (indent-according-to-mode)))
+
 ;;;; Mode
 
 (defvar-keymap tf-ts-mode-map
@@ -575,6 +586,7 @@ The task goes to the top of the next section, and its header changes to match."
   (setq-local display-fill-column-indicator-column tf-ts-mode-column-limit)
   (treesit-major-mode-setup)
   (font-lock-add-keywords nil (tf-ts-mode--violation-keywords) 'append)
+  (add-hook 'post-self-insert-hook #'tf-ts-mode--snap-property nil t)
   (auto-fill-mode 1)
   (display-fill-column-indicator-mode 1))
 

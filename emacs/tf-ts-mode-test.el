@@ -404,6 +404,33 @@
       (remove-hook 'compilation-finish-functions #'tf-ts-mode--after-update)
       (delete-directory root t))))
 
+(defun tf-ts-mode-test--type (string)
+  "Type STRING at point as self-inserting keys."
+  (dolist (c (string-to-list string))
+    (let ((last-command-event c))
+      (self-insert-command 1))))
+
+(ert-deftest tf-ts-mode-test-snap-property-marker ()
+  (dolist (header '("- [ ] title" "- [x] title" "- ~~[ ] title~~"))
+    (dolist (typed '(": emacs" "! 5" ". 17" "; b"))
+      (tf-ts-mode-test--with-buffer (concat "# todo\n\n" header)
+        (newline-and-indent)
+        (should (= (if (string-prefix-p "- ~~" header) 8 6) (current-column)))
+        (tf-ts-mode-test--type typed)
+        (should (equal (buffer-substring (line-beginning-position) (point-max))
+                       (concat "    " typed)))))))
+
+(ert-deftest tf-ts-mode-test-snap-leaves-other-lines ()
+  "Only a property marker snaps: titles, fields and text keep what was typed."
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] title"
+    (newline-and-indent)
+    (tf-ts-mode-test--type "wrapped title")
+    (should (equal (buffer-substring (line-beginning-position) (point-max)) "      wrapped title")))
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] t\n\n  D : x"
+    (newline-and-indent)
+    (tf-ts-mode-test--type "a : b")
+    (should (equal (buffer-substring (line-beginning-position) (point-max)) "      a : b"))))
+
 (provide 'tf-ts-mode-test)
 
 ;;; tf-ts-mode-test.el ends here
