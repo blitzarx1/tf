@@ -55,12 +55,12 @@ export default grammar({
 
     task: $ => seq(
       $.task_header,
-      repeat(choice(
-        alias($.text_line, $.title_continuation),
-        $._property,
-        $._blank,
-        $._invalid_line,
-      )),
+      repeat(alias($.text_line, $.title_continuation)),
+      optional($.id),
+      optional($.priority),
+      optional($.type),
+      optional($.tags),
+      repeat(choice($._blank, $._invalid_line, $.stray_property)),
       repeat($.field),
     ),
 
@@ -74,19 +74,21 @@ export default grammar({
     state_cancelled: $ => "- ~~[ ] ",
     title: $ => $._inline,
 
-    // Optional lines under the header, in this order: id, priority, type, tags.
-    _property: $ => choice($.id, $.priority, $.type, $.tags),
+    // Optional lines under the header, in this order: id, priority, type, tags. A property line
+    // out of order, repeated or after a blank line is a `stray_property`.
+    stray_property: $ => seq($.stray_marker, optional($.text), "\n"),
+    stray_marker: $ => token(prec(-1, /    [.!;:] /)),
     id: $ => seq($.id_marker, $.id_value, "\n"),
-    id_marker: $ => /    \. /,
+    id_marker: $ => token(prec(1, /    \. /)),
     id_value: $ => /[0-9]+/,
     priority: $ => seq($.priority_marker, $.priority_value, "\n"),
-    priority_marker: $ => /    ! /,
+    priority_marker: $ => token(prec(1, /    ! /)),
     priority_value: $ => /[0-9]+/,
     type: $ => seq($.type_marker, $.type_value, "\n"),
-    type_marker: $ => /    ; /,
+    type_marker: $ => token(prec(1, /    ; /)),
     type_value: $ => /[a-z]+/,
     tags: $ => seq($.tags_marker, $.tag, repeat(seq($._tag_separator, $.tag)), "\n"),
-    tags_marker: $ => /    : /,
+    tags_marker: $ => token(prec(1, /    : /)),
     tag: $ => /[^,\s]+/,
     _tag_separator: $ => /,? +/,
 

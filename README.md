@@ -80,7 +80,9 @@ the task to `# done`:
       origin and redirects there; added a test for /settings. 3f9c2a1
 ```
 
-`! 80` is the priority (0-100, default 50) and `: b` the tags (`b` is a bug). The full format
+`! 80` is the priority (0-100, default 50) and `: b` the tags (`b` is a bug). A task can also carry
+an id, `. 1792321201`: a unix timestamp in UTC (here 2026-10-18T11:00:01Z). Header lines go in the
+order id, priority, type, tags. A title is one sentence that starts in lowercase. The full format
 is in `skill/base.md`.
 
 ## Update
@@ -100,11 +102,15 @@ Keys, all under `C-c C-`:
 | Key | Does |
 |---|---|
 | `n` / `p` | next / previous task |
-| `t` | new task below the current one |
+| `t` | new task below the current one, with an id and priority 50 |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
 | `s` / `a` | separator below / above the task |
 | `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog |
 | `u` | run `.tf/update.sh` after a confirmation |
+| `i` | show the task's id as a date (also shown by eldoc on the id line) |
+
+`C-c h` / `C-c l` lower / raise the priority of the task by 10. Typing `. `, `! `, `; ` or `: ` on a
+header line moves it to its place in the header.
 
 Typing backticks helps too: one pairs (`` ` `` becomes a pair with the cursor between), the second
 steps over the closing one, and a third on an empty line makes a code block: the fences on their

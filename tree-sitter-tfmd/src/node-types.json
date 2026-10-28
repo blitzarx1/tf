@@ -217,6 +217,25 @@
     }
   },
   {
+    "type": "stray_property",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "stray_marker",
+          "named": true
+        },
+        {
+          "type": "text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "tags",
     "named": true,
     "fields": {},
@@ -257,6 +276,10 @@
         },
         {
           "type": "priority",
+          "named": true
+        },
+        {
+          "type": "stray_property",
           "named": true
         },
         {
@@ -524,6 +547,10 @@
   },
   {
     "type": "state_open",
+    "named": true
+  },
+  {
+    "type": "stray_marker",
     "named": true
   },
   {
