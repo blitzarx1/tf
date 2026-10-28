@@ -612,6 +612,18 @@
     (newline-and-indent)
     (should (= (current-column) 4))))
 
+(ert-deftest tf-ts-mode-test-keys ()
+  "The commands live under `C-c C-'; the bare `C-c <letter>' keys are left to the user."
+  (with-temp-buffer
+    (tf-ts-mode)
+    (dolist (b '(("C-c C-t" . tf-ts-mode-new)
+                 ("C-c C-h" . tf-ts-mode-priority-up)
+                 ("C-c C-l" . tf-ts-mode-priority-down)
+                 ("C-c C-v" . tf-ts-mode-advance-task)))
+      (should (eq (key-binding (kbd (car b))) (cdr b))))
+    (dolist (k '("C-c t" "C-c h" "C-c l"))
+      (should-not (key-binding (kbd k))))))
+
 (provide 'tf-ts-mode-test)
 
 ;;; tf-ts-mode-test.el ends here
