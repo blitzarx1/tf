@@ -1,0 +1,502 @@
+[
+  {
+    "type": "code_block",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "code_line",
+          "named": true
+        },
+        {
+          "type": "fence_close",
+          "named": true
+        },
+        {
+          "type": "fence_open",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "code_line",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "entry",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "entry_marker",
+          "named": true
+        },
+        {
+          "type": "entry_name",
+          "named": true
+        },
+        {
+          "type": "entry_text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "entry_text",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "field",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "code_block",
+          "named": true
+        },
+        {
+          "type": "field_label",
+          "named": true
+        },
+        {
+          "type": "field_text",
+          "named": true
+        },
+        {
+          "type": "invalid",
+          "named": true
+        },
+        {
+          "type": "list_item",
+          "named": true
+        },
+        {
+          "type": "text_line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "field_text",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "id",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "id_marker",
+          "named": true
+        },
+        {
+          "type": "id_value",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "id_value",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "list_item",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "list_marker",
+          "named": true
+        },
+        {
+          "type": "text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "priority",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "priority_marker",
+          "named": true
+        },
+        {
+          "type": "priority_value",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "priority_value",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "separator_line",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "invalid",
+          "named": true
+        },
+        {
+          "type": "separator",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "source_file",
+    "named": true,
+    "root": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "task_section",
+          "named": true
+        },
+        {
+          "type": "text_section",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "tags",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "tag",
+          "named": true
+        },
+        {
+          "type": "tags_marker",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "task",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "field",
+          "named": true
+        },
+        {
+          "type": "id",
+          "named": true
+        },
+        {
+          "type": "invalid",
+          "named": true
+        },
+        {
+          "type": "priority",
+          "named": true
+        },
+        {
+          "type": "tags",
+          "named": true
+        },
+        {
+          "type": "task_header",
+          "named": true
+        },
+        {
+          "type": "title_continuation",
+          "named": true
+        },
+        {
+          "type": "type",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "task_header",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "state_cancelled",
+          "named": true
+        },
+        {
+          "type": "state_done",
+          "named": true
+        },
+        {
+          "type": "state_open",
+          "named": true
+        },
+        {
+          "type": "title",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "task_section",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "heading",
+          "named": true
+        },
+        {
+          "type": "invalid",
+          "named": true
+        },
+        {
+          "type": "separator_line",
+          "named": true
+        },
+        {
+          "type": "task",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "text",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "text_line",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "text_section",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "code_block",
+          "named": true
+        },
+        {
+          "type": "entry",
+          "named": true
+        },
+        {
+          "type": "field",
+          "named": true
+        },
+        {
+          "type": "heading",
+          "named": true
+        },
+        {
+          "type": "invalid",
+          "named": true
+        },
+        {
+          "type": "list_item",
+          "named": true
+        },
+        {
+          "type": "prose",
+          "named": true
+        },
+        {
+          "type": "text_line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "title",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "title_continuation",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "type",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "type_marker",
+          "named": true
+        },
+        {
+          "type": "type_value",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "\n",
+    "named": false
+  },
+  {
+    "type": "entry_marker",
+    "named": true
+  },
+  {
+    "type": "entry_name",
+    "named": true
+  },
+  {
+    "type": "fence_close",
+    "named": true
+  },
+  {
+    "type": "fence_open",
+    "named": true
+  },
+  {
+    "type": "field_label",
+    "named": true
+  },
+  {
+    "type": "heading",
+    "named": true
+  },
+  {
+    "type": "id_marker",
+    "named": true
+  },
+  {
+    "type": "invalid",
+    "named": true
+  },
+  {
+    "type": "list_marker",
+    "named": true
+  },
+  {
+    "type": "priority_marker",
+    "named": true
+  },
+  {
+    "type": "prose",
+    "named": true
+  },
+  {
+    "type": "separator",
+    "named": true
+  },
+  {
+    "type": "state_cancelled",
+    "named": true
+  },
+  {
+    "type": "state_done",
+    "named": true
+  },
+  {
+    "type": "state_open",
+    "named": true
+  },
+  {
+    "type": "tag",
+    "named": true
+  },
+  {
+    "type": "tags_marker",
+    "named": true
+  },
+  {
+    "type": "type_marker",
+    "named": true
+  },
+  {
+    "type": "type_value",
+    "named": true
+  }
+]

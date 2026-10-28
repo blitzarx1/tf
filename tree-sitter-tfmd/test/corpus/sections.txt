@@ -1,0 +1,264 @@
+================================================================================:sep
+empty sections
+================================================================================:sep
+# todo
+
+# backlog
+
+# done
+
+# tags
+
+# commands
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading))
+  (task_section
+    (heading))
+  (task_section
+    (heading))
+  (text_section
+    (heading))
+  (text_section
+    (heading)))
+
+================================================================================:sep
+task states and wrapped titles
+================================================================================:sep
+# todo
+
+- [ ] open task
+- [x] done task, title wraps
+      under the title text
+
+--------------------------------
+
+- ~~[ ] cancelled task, title wraps
+        and ends here~~
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title)))
+    (task
+      (task_header
+        (state_done)
+        (title))
+      (title_continuation
+        (text)))
+    (separator_line
+      (separator))
+    (task
+      (task_header
+        (state_cancelled)
+        (title))
+      (title_continuation
+        (text)))))
+
+================================================================================:sep
+properties
+================================================================================:sep
+# backlog
+
+- [ ] fix login redirect
+    . 1792321201
+    ! 100
+    ; b
+    : auth, user-flow
+
+--------------------------------
+
+- [ ] tags separated by spaces
+    : ? pre-emacs
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (id
+        (id_marker)
+        (id_value))
+      (priority
+        (priority_marker)
+        (priority_value))
+      (type
+        (type_marker)
+        (type_value))
+      (tags
+        (tags_marker)
+        (tag)
+        (tag)))
+    (separator_line
+      (separator))
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (tags
+        (tags_marker)
+        (tag)
+        (tag)))))
+
+================================================================================:sep
+fields, lists and code blocks
+================================================================================:sep
+# todo
+
+- [ ] task
+
+  D : Text, wrapped
+      under the text.
+
+    1. Step one,
+       wrapped.
+       * nested item
+           * deeper
+    * bullet
+
+  C : comment
+
+    ```markdown
+    - [ ] example
+        ! 100
+    ```
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (field
+        (field_label)
+        (field_text)
+        (text_line
+          (text))
+        (list_item
+          (list_marker)
+          (text))
+        (text_line
+          (text))
+        (list_item
+          (list_marker)
+          (text))
+        (list_item
+          (list_marker)
+          (text))
+        (list_item
+          (list_marker)
+          (text)))
+      (field
+        (field_label)
+        (field_text)
+        (code_block
+          (fence_open)
+          (code_line)
+          (code_line)
+          (fence_close))))))
+
+================================================================================:sep
+tags and commands sections
+================================================================================:sep
+# tags
+
+Your own tags, `one` per line:
+
+- md Markdown rendering
+- ts
+
+# commands
+
+Text before the template:
+
+```
+- `tf <name> <args>`
+
+  D : <what the agent does>
+```
+
+- `tf name`
+
+  D : do something.
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (text_section
+    (heading)
+    (prose)
+    (entry
+      (entry_marker)
+      (entry_name)
+      (entry_text))
+    (entry
+      (entry_marker)
+      (entry_name)))
+  (text_section
+    (heading)
+    (prose)
+    (code_block
+      (fence_open)
+      (code_line)
+      (code_line)
+      (fence_close))
+    (entry
+      (entry_marker)
+      (entry_name))
+    (field
+      (field_label)
+      (field_text))))
+
+================================================================================:sep
+forbidden lines stay local
+================================================================================:sep
+# todo
+
+- [ ] task
+	tab line
+ C : one space
+  D : good field
+   three spaces
+  
+
+--------------------------------
+
+- [ ] next
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (invalid)
+      (invalid)
+      (field
+        (field_label)
+        (field_text)
+        (invalid)
+        (invalid)))
+    (separator_line
+      (separator))
+    (task
+      (task_header
+        (state_open)
+        (title)))))
