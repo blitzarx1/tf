@@ -106,6 +106,11 @@ Keys, all under `C-c C-`:
 | `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog |
 | `u` | run `.tf/update.sh` after a confirmation |
 
+Typing backticks helps too: one pairs (`` ` `` becomes a pair with the cursor between), the second
+steps over the closing one, and a third on an empty line makes a code block: the fences on their
+own lines and the cursor on the code line between them, 4 columns deeper. Inline code and code
+blocks are highlighted monospace on a subtle background.
+
 ## Files
 
 | File | What |

@@ -23,11 +23,6 @@
     }
   },
   {
-    "type": "code_line",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "entry",
     "named": true,
     "fields": {},
@@ -53,7 +48,17 @@
   {
     "type": "entry_text",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "inline_code",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "field",
@@ -93,7 +98,17 @@
   {
     "type": "field_text",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "inline_code",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "id",
@@ -320,7 +335,17 @@
   {
     "type": "text",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "inline_code",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "text_line",
@@ -383,7 +408,17 @@
   {
     "type": "title",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "inline_code",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "title_continuation",
@@ -424,6 +459,10 @@
     "named": false
   },
   {
+    "type": "code_line",
+    "named": true
+  },
+  {
     "type": "entry_marker",
     "named": true
   },
@@ -449,6 +488,10 @@
   },
   {
     "type": "id_marker",
+    "named": true
+  },
+  {
+    "type": "inline_code",
     "named": true
   },
   {

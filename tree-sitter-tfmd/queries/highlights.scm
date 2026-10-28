@@ -34,5 +34,6 @@
   (fence_close)
 ] @punctuation.delimiter
 (code_line) @markup.raw
+(inline_code) @markup.raw
 
 (invalid) @error
