@@ -197,26 +197,37 @@
     (should (looking-at "- \\[ \\] open task"))
     (should-error (tf-ts-mode-previous-task) :type 'user-error)))
 
-(ert-deftest tf-ts-mode-test-new-task ()
+(ert-deftest tf-ts-mode-test-new ()
   (tf-ts-mode-test--with-buffer
       (concat "# todo\n\n- [ ] one\n\n" tf-ts-mode--separator "\n\n- [ ] two\n")
     (goto-char (point-min))
     (tf-ts-mode-next-task)
-    (tf-ts-mode-new-task)
+    (tf-ts-mode-new)
     (insert "new")
     (should (equal (buffer-string)
                    (concat "# todo\n\n- [ ] one\n\n" tf-ts-mode--separator
                            "\n\n- [ ] new\n\n" tf-ts-mode--separator "\n\n- [ ] two\n")))))
 
-(ert-deftest tf-ts-mode-test-new-task-last ()
+(ert-deftest tf-ts-mode-test-new-last ()
   (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] one\n\n  D : text\n"
     (goto-char (point-min))
     (tf-ts-mode-next-task)
-    (tf-ts-mode-new-task)
+    (tf-ts-mode-new)
     (should (equal (buffer-string)
                    (concat "# todo\n\n- [ ] one\n\n  D : text\n\n" tf-ts-mode--separator
                            "\n\n- [ ] \n")))
     (should (looking-at "\n\\'"))))
+
+(ert-deftest tf-ts-mode-test-new-outside-todo ()
+  (tf-ts-mode-test--with-buffer
+      (concat "# todo\n\n- [ ] one\n\n# backlog\n\n- [ ] later\n")
+    (goto-char (point-min))
+    (search-forward "later")
+    (tf-ts-mode-new)
+    (insert "new")
+    (should (equal (buffer-string)
+                   (concat "# todo\n\n- [ ] new\n\n" tf-ts-mode--separator
+                           "\n\n- [ ] one\n\n# backlog\n\n- [ ] later\n")))))
 
 (ert-deftest tf-ts-mode-test-add-description ()
   (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] one\n"

@@ -18,8 +18,10 @@
 ;; indents with spaces only, and indents a line break to where the paragraph's text starts.
 ;;
 ;; Keys (prefix C-c C-):
+;;   C-c t                 new task in `# todo' from anywhere: below the current task if it is in
+;;                         `# todo', else at the top of the section
 ;;   n / p                 next / previous task
-;;   t                     new task below the current one
+;;   t                     the same as C-c t
 ;;   d                     add a `D :' field (or a new paragraph in the existing one)
 ;;   m                     add a `C :' field (comment)
 ;;   s / a                 add a separator below / above the current task
@@ -377,12 +379,21 @@ Stops at the first line that is not part of a list in a field."
   (let ((task (or (tf-ts-mode--task-node) (user-error "Not in a task"))))
     (tf-ts-mode--last-line-end task)))
 
-(defun tf-ts-mode-new-task ()
-  "Insert a new task below the current one, divided by a separator."
+(defun tf-ts-mode-new ()
+  "Insert a new task into the todo section, wherever point is in the buffer.
+On a task of `# todo' the new task goes below it, divided by a separator; anywhere else, at the
+top of the section."
   (interactive)
-  (let ((end (tf-ts-mode--end-of-task)))
-    (goto-char end)
-    (insert "\n\n" tf-ts-mode--separator "\n\n- [ ] ")))
+  (let* ((task (tf-ts-mode--task-node))
+         (section (and task (treesit-node-parent task))))
+    (if (and section
+             (equal (treesit-node-type section) "task_section")
+             (equal (tf-ts-mode--section-heading section) "# todo"))
+        (progn
+          (goto-char (tf-ts-mode--last-line-end task))
+          (insert "\n\n" tf-ts-mode--separator "\n\n- [ ] "))
+      (goto-char (+ 6 (atomic-change-group
+                        (tf-ts-mode--insert-task-at-top "# todo" "- [ ] ")))))))
 
 (defun tf-ts-mode--fields (task label)
   "Field nodes of TASK whose label is LABEL (\"D\" or \"C\"), or all fields when nil."
@@ -618,9 +629,10 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
 
 (defvar-keymap tf-ts-mode-map
   :doc "Keymap for `tf-ts-mode'."
+  "C-c t" #'tf-ts-mode-new
   "C-c C-n" #'tf-ts-mode-next-task
   "C-c C-p" #'tf-ts-mode-previous-task
-  "C-c C-t" #'tf-ts-mode-new-task
+  "C-c C-t" #'tf-ts-mode-new
   "C-c C-d" #'tf-ts-mode-add-description
   "C-c C-m" #'tf-ts-mode-add-comment
   "C-c C-s" #'tf-ts-mode-separator-below
