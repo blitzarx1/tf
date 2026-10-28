@@ -266,6 +266,144 @@
                    (concat "# todo\n\n- [ ] one\n\n" tf-ts-mode--separator "\n\n"
                            tf-ts-mode--separator "\n\n- [ ] two\n")))))
 
+;;;; advance task stage
+
+(defconst tf-ts-mode-test--sep tf-ts-mode--separator)
+
+(defun tf-ts-mode-test--advance (text &optional marker)
+  "Advance the task whose title contains MARKER (default \"] one\") in TEXT; return the buffer."
+  (with-temp-buffer
+    (insert text)
+    (tf-ts-mode)
+    (goto-char (point-min))
+    (search-forward (or marker "] one"))
+    (tf-ts-mode-advance-task)
+    (buffer-string)))
+
+(ert-deftest tf-ts-mode-test-advance-backlog-to-todo ()
+  (should (equal (tf-ts-mode-test--advance
+                  (concat "# todo\n\n- [ ] zero\n\n# backlog\n\n- [ ] one\n\n  D : text\n\n"
+                          tf-ts-mode-test--sep "\n\n- [ ] two\n"))
+                 (concat "# todo\n\n- [ ] one\n\n  D : text\n\n" tf-ts-mode-test--sep
+                         "\n\n- [ ] zero\n\n# backlog\n\n- [ ] two\n"))))
+
+(ert-deftest tf-ts-mode-test-advance-into-empty-section ()
+  (should (equal (tf-ts-mode-test--advance "# todo\n\n# backlog\n\n- [ ] one\n")
+                 "# todo\n\n- [ ] one\n\n# backlog\n"))
+  (should (equal (tf-ts-mode-test--advance "# todo\n\n- [ ] one\n\n# done\n")
+                 "# todo\n\n# done\n\n- [x] one\n")))
+
+(ert-deftest tf-ts-mode-test-advance-todo-to-done ()
+  (should (equal (tf-ts-mode-test--advance
+                  (concat "# todo\n\n- [ ] zero\n\n" tf-ts-mode-test--sep
+                          "\n\n- [ ] one\n\n# done\n\n- [x] old\n"))
+                 (concat "# todo\n\n- [ ] zero\n\n# done\n\n- [x] one\n\n" tf-ts-mode-test--sep
+                         "\n\n- [x] old\n"))))
+
+(ert-deftest tf-ts-mode-test-advance-done-to-cancelled ()
+  (should (equal (tf-ts-mode-test--advance
+                  (concat "# done\n\n- [x] zero\n\n" tf-ts-mode-test--sep
+                          "\n\n- [x] one\n      wraps\n    ! 5\n\n  C : note\n"))
+                 (concat "# done\n\n- ~~[ ] one\n      wraps~~\n    ! 5\n\n  C : note\n\n"
+                         tf-ts-mode-test--sep "\n\n- [x] zero\n"))))
+
+(ert-deftest tf-ts-mode-test-advance-cancelled-to-backlog ()
+  (should (equal (tf-ts-mode-test--advance
+                  "# done\n\n- ~~[ ] one\n      wraps~~\n    ! 5\n\n# backlog\n\n- [ ] two\n")
+                 (concat "# done\n\n# backlog\n\n- [ ] one\n      wraps\n    ! 5\n\n"
+                         tf-ts-mode-test--sep "\n\n- [ ] two\n"))))
+
+(ert-deftest tf-ts-mode-test-advance-loop ()
+  (let ((text (concat "# todo\n\n# backlog\n\n- [ ] one\n\n  D : text\n\n  C : note\n\n"
+                      "# done\n")))
+    (with-temp-buffer
+      (insert text)
+      (tf-ts-mode)
+      (goto-char (point-min))
+      (search-forward "] one")
+      (dotimes (_ 4) (tf-ts-mode-advance-task))
+      (should (equal (buffer-string) text))
+      (should (looking-at "- \\[ \\] one")))))
+
+(ert-deftest tf-ts-mode-test-advance-keeps-wellformed ()
+  (with-temp-buffer
+    (insert (concat "# todo\n\n- [ ] one\n\n  D : x\n\n      * item\n\n# backlog\n\n# done\n"))
+    (tf-ts-mode)
+    (goto-char (point-min))
+    (search-forward "] one")
+    (dotimes (_ 3)
+      (tf-ts-mode-advance-task)
+      (let ((before (buffer-string)))
+        (indent-region (point-min) (point-max))
+        (should (equal (buffer-string) before))))))
+
+(ert-deftest tf-ts-mode-test-advance-undo ()
+  (with-temp-buffer
+    (buffer-enable-undo)
+    (insert "# todo\n\n- [ ] one\n\n# done\n\n- [x] old\n")
+    (tf-ts-mode)
+    (undo-boundary)
+    (let ((text (buffer-string)))
+      (goto-char (point-min))
+      (search-forward "] one")
+      (tf-ts-mode-advance-task)
+      (should-not (equal (buffer-string) text))
+      (undo-boundary)
+      (primitive-undo 1 (if (null (car buffer-undo-list)) (cdr buffer-undo-list) buffer-undo-list))
+      (should (equal (buffer-string) text)))))
+
+(ert-deftest tf-ts-mode-test-advance-errors ()
+  (with-temp-buffer
+    (insert "# todo\n\n# tags\n\n- a b\n")
+    (tf-ts-mode)
+    (goto-char (point-max))
+    (should-error (tf-ts-mode-advance-task) :type 'user-error)))
+
+;;;; update
+
+(defun tf-ts-mode-test--project (script)
+  "A temp project with `.tf/tasks.tfmd' and, when SCRIPT, an executable `.tf/update.sh'."
+  (let ((root (make-temp-file "tf-test" t)))
+    (make-directory (expand-file-name ".tf" root))
+    (write-region "# todo\n" nil (expand-file-name ".tf/tasks.tfmd" root))
+    (when script
+      (let ((f (expand-file-name ".tf/update.sh" root)))
+        (write-region "#!/bin/sh\n" nil f)
+        (set-file-modes f #o755)))
+    root))
+
+(ert-deftest tf-ts-mode-test-update-missing-script ()
+  (let* ((root (tf-ts-mode-test--project nil))
+         (default-directory (file-name-as-directory root)))
+    (unwind-protect
+        (should-error (tf-ts-mode-update) :type 'user-error)
+      (delete-directory root t))))
+
+(ert-deftest tf-ts-mode-test-update-declined ()
+  (let* ((root (tf-ts-mode-test--project t))
+         (default-directory (file-name-as-directory root))
+         (started nil))
+    (unwind-protect
+        (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) nil))
+                  ((symbol-function 'compilation-start) (lambda (&rest _) (setq started t))))
+          (tf-ts-mode-update)
+          (should-not started))
+      (delete-directory root t))))
+
+(ert-deftest tf-ts-mode-test-update-confirmed ()
+  (let* ((root (tf-ts-mode-test--project t))
+         (default-directory (file-name-as-directory root))
+         (command nil) (dir nil))
+    (unwind-protect
+        (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                  ((symbol-function 'compilation-start)
+                   (lambda (c &rest _) (setq command c dir default-directory))))
+          (tf-ts-mode-update)
+          (should (equal command ".tf/update.sh"))
+          (should (equal (file-truename dir) (file-name-as-directory (file-truename root)))))
+      (remove-hook 'compilation-finish-functions #'tf-ts-mode--after-update)
+      (delete-directory root t))))
+
 (provide 'tf-ts-mode-test)
 
 ;;; tf-ts-mode-test.el ends here
