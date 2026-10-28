@@ -23,11 +23,11 @@
   D : Description text,
       wrapped under the text.
 
-    1. Step one,
-       wrapped.
-       * nested item
-         wrapped nested
-    * bullet
+      1. Step one,
+         wrapped.
+         * nested item
+           wrapped nested
+      * bullet
 
   C : comment
 
@@ -108,10 +108,10 @@
   (should (= 8 (tf-ts-mode-test--column-after-ret "# todo\n\n- ~~[ ] title")))
   (should (= 6 (tf-ts-mode-test--column-after-ret "# todo\n\n- [ ] t\n\n  D : text")))
   (should (= 6 (tf-ts-mode-test--column-after-ret "# todo\n\n- [ ] t\n\n  D : text\n      more")))
-  (should (= 7 (tf-ts-mode-test--column-after-ret "# todo\n\n- [ ] t\n\n  D : x\n\n    1. step")))
-  (should (= 6 (tf-ts-mode-test--column-after-ret "# todo\n\n- [ ] t\n\n  D : x\n\n    * item")))
-  (should (= 9 (tf-ts-mode-test--column-after-ret
-                "# todo\n\n- [ ] t\n\n  D : x\n\n    1. a\n       * nested")))
+  (should (= 9 (tf-ts-mode-test--column-after-ret "# todo\n\n- [ ] t\n\n  D : x\n\n      1. step")))
+  (should (= 8 (tf-ts-mode-test--column-after-ret "# todo\n\n- [ ] t\n\n  D : x\n\n      * item")))
+  (should (= 11 (tf-ts-mode-test--column-after-ret
+                 "# todo\n\n- [ ] t\n\n  D : x\n\n      1. a\n         * nested")))
   (should (= 2 (tf-ts-mode-test--column-after-ret "# todo\n\n- [ ] t\n    ! 5")))
   (should (= 4 (tf-ts-mode-test--column-after-ret
                 "# todo\n\n- [ ] t\n\n  D : x\n\n    ```\n    code"))))
@@ -146,7 +146,7 @@
   (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] t\n\n  D : x\n"
     (insert "* item")
     (indent-for-tab-command)
-    (should (equal (buffer-substring (line-beginning-position) (point)) "    * item"))))
+    (should (equal (buffer-substring (line-beginning-position) (point)) "      * item"))))
 
 (ert-deftest tf-ts-mode-test-font-lock ()
   (tf-ts-mode-test--with-buffer tf-ts-mode-test--sample

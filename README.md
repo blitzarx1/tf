@@ -2,21 +2,21 @@
 
 *T'fuck task tracker for millenial vibecoders ~~enjoying~~ suffering from OCD...*
 
-A task list your coding agent works through. It's a single Markdown file 
+A task list your coding agent works through. It's a single `.tfmd` file
 in your repo, with skills for Claude and Codex.
 
 Control plane for your llm: while the agent works, you plan the next moves.
 
 ## Why
 
-- **Code-first.** One plain-text file in your repo. It reads well in any editor, diffs cleanly
-  and renders fine on GitHub. The format is written down in `skill/base.md`, not hidden in a tool.
+- **Code-first.** One plain-text file in your repo. It reads well in any editor, diffs cleanly.
+  The format is written down in `skill/base.md`, not hidden in a tool.
 - **You control the llm.** The agent takes only the first open item under `# todo`, plans before
   it changes anything and asks about what the task leaves open. `# backlog` is never touched.
 - **Human-first.** You write tasks in your own words; the agent records what it did and why.
-  Commit `tf.md` and its git log is your task history.
+  Commit `tasks.tfmd` and its git log is your task history.
 - **Minimal setup.** No server, no database, no CLI: one folder and two lines of config. Any model
-  that can read files can follow it. Your own tags and commands go in `tf.md`.
+  that can read files can follow it. Your own tags and commands go in `tasks.tfmd`.
 
 ## Install
 
@@ -30,28 +30,28 @@ git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
 - turns `.tf` into a plain folder by deleting `.tf/.git`;
 - links `.tf/skill` as the `tf` skill (`.claude/skills/tf`, `.agents/skills/tf`);
 - adds `@.tf/skill/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`;
-- deletes `README.md` and itself from `.tf`, leaving `tf.md`, `update.sh`, `VERSION` and `skill/`.
+- deletes `README.md` and itself from `.tf`, leaving `tasks.tfmd`, `update.sh`, `VERSION` and `skill/`.
 
 To keep the task list private, add `.tf/`, `.claude/skills/tf` and `.agents/skills/tf` to
 `.gitignore`.
 
 Already have a task list (a `TODO.md`, a folder of notes, an issues export)? Type
-`tf migrate <path>`: the agent reads it, shows what goes where, and fills `tf.md` once you
+`tf migrate <path>`: the agent reads it, shows what goes where, and fills `tasks.tfmd` once you
 agree. Your old files stay as they are.
 
 ## Use
 
 | You type | The agent |
 |---|---|
-| `tf` | re-reads `.tf/tf.md` and works the first open `# todo` item: answers a question, plans and then implements a task or bug, or asks you questions and splits an epic into tasks. Then it moves the item to `# done` with a summary. |
+| `tf` | re-reads `.tf/tasks.tfmd` and works the first open `# todo` item: answers a question, plans and then implements a task or bug, or asks you questions and splits an epic into tasks. Then it moves the item to `# done` with a summary. |
 | `tf <n>` | works the first `<n>` open `# todo` items together: one plan covering all of them, one approval, then implements them in order and closes each. |
-| `tf migrate <path>` | reads your old tracker (a file or a folder), shows what goes to `# todo`, `# backlog` and `# done`, and appends the tasks to `tf.md` once you agree. Open tasks it can't place go to `# backlog`. |
+| `tf migrate <path>` | reads your old tracker (a file or a folder), shows what goes to `# todo`, `# backlog` and `# done`, and appends the tasks to `tasks.tfmd` once you agree. Open tasks it can't place go to `# backlog`. |
 
-Edit `tf.md` yourself whenever you like. Add new items to `# todo` or `# backlog`, move them
+Edit `tasks.tfmd` yourself whenever you like. Add new items to `# todo` or `# backlog`, move them
 between the two, and add `D : ` descriptions and `C : ` comments. The agent re-reads the file
 every time.
 
-Add your own commands under `# commands` in `tf.md` (the built-in ones are in `skill/base.md`), then type
+Add your own commands under `# commands` in `tasks.tfmd` (the built-in ones are in `skill/base.md`), then type
 them like the built-ins.
 
 ## Example
@@ -90,15 +90,15 @@ is in `skill/base.md`.
 ```
 
 This replaces `skill/`, `VERSION` and `update.sh` with the latest versions and prints the version
-change. It never touches `tf.md`.
+change. It never touches `tasks.tfmd`.
 
 ## Files
 
 | File | What |
 |---|---|
-| `tf.md` | Your tasks, tags and commands |
+| `tasks.tfmd` | Your tasks, tags and commands |
 | `skill/base.md` | The format, and the built-in tags and commands with their full definitions (tf's; replaced by updates) |
-| `skill/AGENTS.md` | Points the agent to `skill/base.md` and `tf.md` |
+| `skill/AGENTS.md` | Points the agent to `skill/base.md` and `tasks.tfmd` |
 | `skill/SKILL.md` | The `tf` skill, linked as `.claude/skills/tf` and `.agents/skills/tf` |
 | `VERSION` | Installed tf version: the release tag, then the commit hash (written by install and update) |
 | `update.sh` | Updates `skill/`, `VERSION` and itself |
