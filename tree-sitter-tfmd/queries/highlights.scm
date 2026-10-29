@@ -26,8 +26,6 @@
 (field_label) @keyword
 
 (list_marker) @markup.list
-(entry_marker) @markup.list
-(entry_name) @tag
 
 [
   (fence_open)

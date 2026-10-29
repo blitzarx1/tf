@@ -15,17 +15,8 @@
         {
           "type": "REPEAT",
           "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "task_section"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "text_section"
-              }
-            ]
+            "type": "SYMBOL",
+            "name": "task_section"
           }
         }
       ]
@@ -84,69 +75,6 @@
         }
       ]
     },
-    "text_section": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_text_heading"
-          },
-          "named": true,
-          "value": "heading"
-        },
-        {
-          "type": "STRING",
-          "value": "\n"
-        },
-        {
-          "type": "REPEAT",
-          "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "_blank"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "prose"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "entry"
-              },
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_text_field"
-                },
-                "named": true,
-                "value": "field"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "list_item"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "text_line"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "code_block"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "_invalid_line"
-              }
-            ]
-          }
-        }
-      ]
-    },
     "_task_heading": {
       "type": "TOKEN",
       "content": {
@@ -155,17 +83,6 @@
         "content": {
           "type": "PATTERN",
           "value": "# (todo|backlog|done)"
-        }
-      }
-    },
-    "_text_heading": {
-      "type": "TOKEN",
-      "content": {
-        "type": "PREC",
-        "value": 2,
-        "content": {
-          "type": "PATTERN",
-          "value": "# (tags|commands)"
         }
       }
     },
@@ -565,10 +482,6 @@
         }
       ]
     },
-    "_text_field": {
-      "type": "SYMBOL",
-      "name": "_field_head"
-    },
     "_field_head": {
       "type": "SEQ",
       "members": [
@@ -792,64 +705,6 @@
     "code_line": {
       "type": "PATTERN",
       "value": "[^\\n]+"
-    },
-    "entry": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "entry_marker"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "entry_name"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "_space"
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "entry_text"
-                }
-              ]
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
-          "type": "STRING",
-          "value": "\n"
-        }
-      ]
-    },
-    "entry_marker": {
-      "type": "STRING",
-      "value": "- "
-    },
-    "entry_name": {
-      "type": "PATTERN",
-      "value": "`[^`\\n]+`|[^\\s`]+"
-    },
-    "entry_text": {
-      "type": "SYMBOL",
-      "name": "_inline"
-    },
-    "_space": {
-      "type": "PATTERN",
-      "value": " +"
-    },
-    "prose": {
-      "type": "PATTERN",
-      "value": "[^\\s\\-#`][^\\n]*|`[^`\\n][^\\n]*|``[^`\\n][^\\n]*"
     }
   },
   "extras": [],

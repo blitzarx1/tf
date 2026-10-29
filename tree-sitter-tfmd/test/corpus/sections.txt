@@ -7,10 +7,6 @@ empty sections
 
 # done
 
-# tags
-
-# commands
-
 --------------------------------------------------------------------------------:sep
 
 (source_file
@@ -19,10 +15,6 @@ empty sections
   (task_section
     (heading))
   (task_section
-    (heading))
-  (text_section
-    (heading))
-  (text_section
     (heading)))
 
 ================================================================================:sep
@@ -173,58 +165,6 @@ fields, lists and code blocks
           (fence_close))))))
 
 ================================================================================:sep
-tags and commands sections
-================================================================================:sep
-# tags
-
-Your own tags, `one` per line:
-
-- md Markdown rendering
-- ts
-
-# commands
-
-Text before the template:
-
-```
-- `tf <name> <args>`
-
-  D : <what the agent does>
-```
-
-- `tf name`
-
-  D : do something.
-
---------------------------------------------------------------------------------:sep
-
-(source_file
-  (text_section
-    (heading)
-    (prose)
-    (entry
-      (entry_marker)
-      (entry_name)
-      (entry_text))
-    (entry
-      (entry_marker)
-      (entry_name)))
-  (text_section
-    (heading)
-    (prose)
-    (code_block
-      (fence_open)
-      (code_line)
-      (code_line)
-      (fence_close))
-    (entry
-      (entry_marker)
-      (entry_name))
-    (field
-      (field_label)
-      (field_text))))
-
-================================================================================:sep
 forbidden lines stay local
 ================================================================================:sep
 # todo
@@ -274,10 +214,6 @@ inline code
 
       * item with `code`
 
-# tags
-
-- `name` meaning with `code`
-
 --------------------------------------------------------------------------------:sep
 
 (source_file
@@ -296,14 +232,7 @@ inline code
         (list_item
           (list_marker)
           (text
-            (inline_code))))))
-  (text_section
-    (heading)
-    (entry
-      (entry_marker)
-      (entry_name)
-      (entry_text
-        (inline_code)))))
+            (inline_code)))))))
 
 ================================================================================:sep
 property lines out of order

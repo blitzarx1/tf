@@ -19,7 +19,7 @@ export default grammar({
   rules: {
     source_file: $ => seq(
       repeat($._blank),
-      repeat(choice($.task_section, $.text_section)),
+      repeat($.task_section),
     ),
 
     _blank: $ => "\n",
@@ -31,23 +31,7 @@ export default grammar({
       repeat(choice($.separator_line, $.task)),
     ),
 
-    // # tags, # commands: prose, entries and their fields
-    text_section: $ => seq(
-      alias($._text_heading, $.heading), "\n",
-      repeat(choice(
-        $._blank,
-        $.prose,
-        $.entry,
-        alias($._text_field, $.field),
-        $.list_item,
-        $.text_line,
-        $.code_block,
-        $._invalid_line,
-      )),
-    ),
-
     _task_heading: $ => token(prec(2, /# (todo|backlog|done)/)),
-    _text_heading: $ => token(prec(2, /# (tags|commands)/)),
 
     // Tasks are divided by 32 dashes; the blank lines after it belong to it.
     separator_line: $ => seq($.separator, "\n", repeat(choice($._blank, $._invalid_line))),
@@ -97,7 +81,6 @@ export default grammar({
       $._field_head,
       repeat(choice($._blank, $.list_item, $.text_line, $.code_block, $._invalid_line)),
     ),
-    _text_field: $ => $._field_head,
     _field_head: $ => seq($.field_label, optional($.field_text), "\n"),
     field_label: $ => /  [DC] : ?/,
     field_text: $ => $._inline,
@@ -129,18 +112,5 @@ export default grammar({
     fence_open: $ => token(prec(4, /[ \t]*```[^\n]*/)),
     fence_close: $ => token(prec(5, /[ \t]*```[ \t]*/)),
     code_line: $ => /[^\n]+/,
-
-    // `# tags` and `# commands`: `- name meaning`, plain prose.
-    entry: $ => seq(
-      $.entry_marker,
-      $.entry_name,
-      optional(seq($._space, $.entry_text)),
-      "\n",
-    ),
-    entry_marker: $ => "- ",
-    entry_name: $ => /`[^`\n]+`|[^\s`]+/,
-    entry_text: $ => $._inline,
-    _space: $ => / +/,
-    prose: $ => /[^\s\-#`][^\n]*|`[^`\n][^\n]*|``[^`\n][^\n]*/,
   },
 });
