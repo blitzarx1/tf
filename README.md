@@ -16,7 +16,7 @@ Control plane for your llm: while the agent works, you plan the next moves.
 - **Human-first.** You write tasks in your own words; the agent records what it did and why.
   Commit `tasks.tfmd` and its git log is your task history.
 - **Minimal setup.** No server, no database, no CLI: one folder and two lines of config. Any model
-  that can read files can follow it. Your own tags and commands go in `tasks.tfmd`.
+  that can read files can follow it.
 
 ## Install
 
@@ -50,9 +50,6 @@ agree. Your old files stay as they are.
 Edit `tasks.tfmd` yourself whenever you like. Add new items to `# todo` or `# backlog`, move them
 between the two, and add `D : ` descriptions and `C : ` comments. The agent re-reads the file
 every time.
-
-Add your own commands under `# commands` in `tasks.tfmd` (the built-in ones are in `skill/base.md`), then type
-them like the built-ins.
 
 ## Example
 
@@ -122,7 +119,7 @@ blocks are highlighted monospace on a subtle background.
 
 | File | What |
 |---|---|
-| `tasks.tfmd` | Your tasks, tags and commands |
+| `tasks.tfmd` | Your tasks |
 | `skill/base.md` | The format, and the built-in tags and commands with their full definitions (tf's; replaced by updates) |
 | `skill/AGENTS.md` | Points the agent to `skill/base.md` and `tasks.tfmd` |
 | `skill/SKILL.md` | The `tf` skill, linked as `.claude/skills/tf` and `.agents/skills/tf` |

@@ -40,10 +40,6 @@
 
 - ~~[ ] cancelled title
         wraps~~
-
-# tags
-
-- md text
 "
   "A well-formed file: indenting it must not change anything.")
 
@@ -126,12 +122,6 @@
   "Heading-looking text inside a title or a field is text, not structure."
   (let ((text (concat "# todo\n\n- [ ] title\n      # todo section\n\n"
                       "  D : text\n\n      # backlog of ideas\n")))
-    (tf-ts-mode-test--with-buffer text
-      (indent-region (point-min) (point-max))
-      (should (equal (buffer-string) text)))))
-
-(ert-deftest tf-ts-mode-test-text-after-column-zero-fence ()
-  (let ((text "# commands\n\n```\n    - `tf x`\n```\n\nText after the template.\n"))
     (tf-ts-mode-test--with-buffer text
       (indent-region (point-min) (point-max))
       (should (equal (buffer-string) text)))))
@@ -372,7 +362,7 @@
 
 (ert-deftest tf-ts-mode-test-advance-errors ()
   (with-temp-buffer
-    (insert "# todo\n\n# tags\n\n- a b\n")
+    (insert "# todo\n\n# done\n")
     (tf-ts-mode)
     (goto-char (point-max))
     (should-error (tf-ts-mode-advance-task) :type 'user-error)))
@@ -596,21 +586,17 @@
     (should (equal (buffer-string)
                    "# todo\n\n- [ ] t\n\n  D : x\n\n      ```\n          \n      ```"))
     (should (= (current-column) 10))
-    (should (equal (buffer-substring (line-beginning-position) (point)) "          ")))
-  (tf-ts-mode-test--with-buffer "# commands\n\n"
-    (tf-ts-mode-test--type "```")
-    (should (equal (buffer-string) "# commands\n\n```\n    \n```"))
-    (should (= (current-column) 4))))
+    (should (equal (buffer-substring (line-beginning-position) (point)) "          "))))
 
 (ert-deftest tf-ts-mode-test-no-pairing-inside-a-block ()
-  (tf-ts-mode-test--with-buffer "# commands\n\n```\n    "
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] t\n\n  D : x\n\n      ```\n          "
     (tf-ts-mode-test--type "`")
-    (should (equal (buffer-string) "# commands\n\n```\n    `"))))
+    (should (equal (buffer-string) "# todo\n\n- [ ] t\n\n  D : x\n\n      ```\n          `"))))
 
 (ert-deftest tf-ts-mode-test-ret-in-block-keeps-code-column ()
-  (tf-ts-mode-test--with-buffer "# commands\n\n```\n    code"
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] t\n\n  D : x\n\n      ```\n          code"
     (newline-and-indent)
-    (should (= (current-column) 4))))
+    (should (= (current-column) 10))))
 
 (ert-deftest tf-ts-mode-test-keys ()
   "The commands live under `C-c C-'; the bare `C-c <letter>' keys are left to the user."

@@ -110,9 +110,7 @@
    '((field_label) @font-lock-keyword-face)
 
    :language 'tfmd :feature 'list
-   '((list_marker) @font-lock-builtin-face
-     (entry_marker) @font-lock-builtin-face
-     (entry_name) @font-lock-constant-face)
+   '((list_marker) @font-lock-builtin-face)
 
    :language 'tfmd :feature 'code
    '((fence_open) @tf-ts-code-face
@@ -148,7 +146,7 @@ make the whole query fail.")
 ;;;; Tree helpers
 
 (defconst tf-ts-mode--containers
-  '("source_file" "task_section" "text_section" "task" "field" "code_block" "separator_line")
+  '("source_file" "task_section" "task" "field" "code_block" "separator_line")
   "Node types that span several lines; the line-level node is the child below one of them.")
 
 (defconst tf-ts-mode--field-types
@@ -264,12 +262,7 @@ Stops at the first line that is not part of a list in a field."
          (pnode (car prev))
          (ptype (and pnode (treesit-node-type pnode)))
          (gap (cdr prev))
-         (in-field (and ptype (member ptype tf-ts-mode--field-types)
-                        ;; a fence at column 0 belongs to a `# tags' / `# commands' section
-                        (not (and (member ptype '("fence_open" "fence_close"))
-                                  (zerop (save-excursion
-                                           (goto-char (treesit-node-start pnode))
-                                           (current-indentation)))))))
+         (in-field (and ptype (member ptype tf-ts-mode--field-types)))
          (in-header (and ptype (member ptype tf-ts-mode--header-types)))
          (code (cl-oddp (tf-ts-mode--fences-above)))
          (text (unless blank

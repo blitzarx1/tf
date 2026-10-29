@@ -1,11 +1,11 @@
 # tf base
 
 Belongs to tf: `.tf/update.sh` replaces it. The format of `tasks.tfmd` and the built-in tags and
-commands. Your own tags and commands go in the `# tags` and `# commands` sections of `tasks.tfmd`.
+commands.
 
 ## format
 
-* `tasks.tfmd` has five sections: `# todo`, `# backlog`, `# done`, `# tags`, `# commands`.
+* `tasks.tfmd` has three sections: `# todo`, `# backlog`, `# done`.
 * Tasks separated from each other with 32 dashes: `--------------------------------`.
 * `tasks.tfmd` is wrapped strictly at 100 columns.
 * Spaces only, no tabs; indent in multiples of 2 spaces (headers' property lines: 4).
@@ -74,8 +74,7 @@ parent's text.
 
 Inline code goes in single backticks, on one line: `` `code` ``. A code block is three backticks
 on their own line, the code lines 4 columns deeper, and three backticks again, with no language
-tag. The fences go where the field's text starts (column 6; column 0 in `# tags` and
-`# commands`).
+tag. The fences go where the field's text starts (column 6).
 
 ```
   C : Text before the block.
@@ -95,19 +94,11 @@ Standard set of tags for marking tasks:
 - epic Potentially huge task which requires decomposition and creation of custom tags to mark
        connected tasks
 
+Your own tags need no registration: write them on the `: ` line.
+
 ## commands
 
-A command is typed by the owner and run by the agent. One entry per command, entries separated by
-a blank line; the entry header is the command in backticks, and the `D : ` field wraps like a task
-body. Names start with `tf ` and can't reuse a built-in.
-
-```
-- `tf <name> <args>`
-
-  D : <what the agent does; <args> are filled in from what the owner typed>
-```
-
-Rules for every command:
+A command is typed by the owner and run by the agent. Rules for every command:
 
 1. Re-read `.tf/tasks.tfmd` and `.tf/skill/base.md` from disk first, even if you read them
    earlier in the session: the owner edits them between commands, so a remembered state is
@@ -115,11 +106,7 @@ Rules for every command:
 2. Touch only the items the command works on. Keep the owner's wording and the other items as they
    are; reflow only to stay within the format. Never cancel an item (`~~...~~`) yourself.
 3. Plan in plan mode when your agent has one (Claude Code: `EnterPlanMode`).
-4. Own commands: when the owner types `tf <something>` that isn't a built-in, find the matching
-   entry in `# commands` of `tasks.tfmd` and do what its `D : ` says, with the arguments filled
-   in. If it changes the project and the description doesn't say how to handle approval, plan
-   and get the owner's approval as for a task; otherwise just run it. If nothing matches, say
-   so and list the commands in `# commands`.
+4. If the owner types `tf <something>` that isn't a built-in, say so and list the built-ins.
 
 Built-in commands:
 
@@ -138,8 +125,8 @@ Built-in commands:
          after the owner approves the plan.
       4. Epic (tag `epic`): plan a split into tasks instead of an implementation. In plan mode,
          investigate first, then ask the owner about everything the split depends on (scope,
-         approach choices, granularity) before writing it; mark the new tasks with a new tag,
-         added to `# tags`. After approval, put the tasks in `# todo` in the epic's place, mark
+         approach choices, granularity) before writing it; mark the new tasks with a new tag.
+         After approval, put the tasks in `# todo` in the epic's place, mark
          the epic `[x]` with a `C : ` listing them and move it to the top of `# done`.
       5. When the work is finished and verified, mark the item `[x]`, add a short `C : ` summary
          (commit hash if any) and move it to the top of `# done`.
@@ -171,8 +158,7 @@ Built-in commands:
          * title to the header `- [ ] <title>`, description to `D : `, notes and comments to
            `C : `, keeping the source wording and reflowing it to the format;
          * priority to the priority line, scaled to 0-100; bug, question and epic to `b`, `?`
-           and `epic`; other labels to the project's own tags, each added to `# tags` as
-           `- <tag> <meaning>` unless already there;
+           and `epic`; other labels to the project's own tags;
          * open tasks marked as current, next, in progress or otherwise scoped go to `# todo`,
            other open tasks to `# backlog`. If the source has no such distinction and it can't
            be inferred, all open tasks go to `# backlog`;
