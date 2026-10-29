@@ -49,6 +49,7 @@ add_line() {
 add_line CLAUDE.md "@.tf/skill/AGENTS.md"                             # Claude Code imports it
 add_line AGENTS.md "Tasks: follow .tf/skill/AGENTS.md (tf task flow)." # Codex reads only the root AGENTS.md
 
-# The README is for the repo page; install.sh runs once.
+# clean up the
 rm -f .tf/README.md .tf/install.sh
-echo "tf $(show_version .tf/VERSION) installed: tasks in .tf/tasks.tfmd; add tasks there yourself, type \"tf\" to work the next one."
+rm -rf .tf/emacs .tf/tree-sitter-tfmd
+echo "tf $(show_version .tf/VERSION) installed: tasks in .tf/tasks.tfmd; add tasks there yourself, use `/tf` command with claude or codex to work with them."
