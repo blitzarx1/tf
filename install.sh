@@ -52,4 +52,4 @@ add_line AGENTS.md "Tasks: follow .tf/skill/AGENTS.md (tf task flow)." # Codex r
 # clean up the
 rm -f .tf/README.md .tf/install.sh
 rm -rf .tf/emacs .tf/tree-sitter-tfmd
-echo "tf $(show_version .tf/VERSION) installed: tasks in .tf/tasks.tfmd; add tasks there yourself, use `/tf` command with claude or codex to work with them."
+echo "tf $(show_version .tf/VERSION) installed: tasks in .tf/tasks.tfmd; add tasks there yourself, use '/tf' command with claude or codex to work with them."
