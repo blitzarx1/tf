@@ -67,9 +67,11 @@
 (defface tf-ts-tab-face '((t :inherit whitespace-tab))
   "Face for tabs, which the format forbids.")
 (defface tf-ts-code-face
-  '((((background light)) :inherit fixed-pitch :background "grey92")
-    (((background dark)) :inherit fixed-pitch :background "grey22"))
+  '((((background light)) :inherit fixed-pitch :background "grey92" :extend t)
+    (((background dark)) :inherit fixed-pitch :background "grey22" :extend t))
   "Face for inline code and fenced blocks: monospace on a subtle background.")
+(defface tf-ts-bug-face '((t :inherit error :weight bold))
+  "Face for the bug task type, the letter `b'.")
 (defface tf-ts-cancelled-face '((t :inherit shadow :strike-through t))
   "Face for titles of cancelled tasks.")
 
@@ -109,6 +111,9 @@
      (type_value) @font-lock-type-face
      (tag) @font-lock-constant-face)
 
+   :language 'tfmd :feature 'property :override t
+   '(((type_value) @tf-ts-bug-face (:match "\\`b\\'" @tf-ts-bug-face)))
+
    :language 'tfmd :feature 'field
    '((field_label) @font-lock-keyword-face)
 
@@ -140,9 +145,39 @@ make the whole query fail.")
 
 ;;;; Format violations
 
+(defun tf-ts-mode--fontify-code-blocks (limit)
+  "Paint every fenced block up to LIMIT with `tf-ts-code-face', whole lines edge to edge.
+The band runs from the start of the opening fence's line through the newline after the closing
+fence, so indent, blank lines and the line ends carry the background too."
+  (let ((beg (point)))
+    (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd)
+                                         '((code_block) @block) beg limit t))
+      (save-excursion
+        (goto-char (treesit-node-start node))
+        (let ((from (line-beginning-position)))
+          ;; the node may end after its last newline, on the next line's start
+          (goto-char (max from (1- (treesit-node-end node))))
+          (add-face-text-property from (min (point-max) (1+ (line-end-position)))
+                                  'tf-ts-code-face t))))
+    (goto-char limit)
+    nil))
+
+(defun tf-ts-mode--fontify-overflow (limit)
+  "Match text past the column limit before LIMIT, except inside a fenced block."
+  (let (found)
+    (while (and (not found)
+                (re-search-forward (format "^.\\{%d\\}\\(.+\\)$" tf-ts-mode-column-limit)
+                                   limit t))
+      (let ((face (get-text-property (match-beginning 1) 'face)))
+        (unless (memq 'tf-ts-code-face (if (listp face) face (list face)))
+          (setq found t))))
+    found))
+
 (defun tf-ts-mode--violation-keywords ()
-  "Font-lock keywords for what the format forbids: text past the limit, trailing space, tabs."
-  `((,(format "^.\\{%d\\}\\(.+\\)$" tf-ts-mode-column-limit) 1 'tf-ts-overflow-face t)
+  "Font-lock keywords for the code band and what the format forbids.
+The band comes first so the overflow rule can see it: text past the limit, trailing space, tabs."
+  `((tf-ts-mode--fontify-code-blocks)
+    (tf-ts-mode--fontify-overflow 1 'tf-ts-overflow-face t)
     ("[ \t]+$" 0 'trailing-whitespace t)
     ("\t" 0 'tf-ts-tab-face t)))
 
