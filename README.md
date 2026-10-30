@@ -58,7 +58,7 @@ You write a task in `# todo`:
 ```
 - [ ] login redirect drops the return url
     ! 80
-    : b
+    ; b
 
   D : After logging in from /settings the user lands on /. Keep the page they came from.
 ```
@@ -69,7 +69,7 @@ the task to `# done`:
 ```
 - [x] login redirect drops the return url
     ! 80
-    : b
+    ; b
 
   D : After logging in from /settings the user lands on /. Keep the page they came from.
 
@@ -77,10 +77,14 @@ the task to `# done`:
       origin and redirects there; added a test for /settings. 3f9c2a1
 ```
 
-`! 80` is the priority (0-100, default 50) and `: b` the tags (`b` is a bug). A task can also carry
-an id, `. 1792321201`: a unix timestamp in UTC (here 2026-10-18T11:00:01Z). Header lines go in the
-order id, priority, type, tags. A title is one sentence that starts in lowercase. The full format
-is in `skill/base.md`.
+`! 80` is the priority (0-100, default 50) and `; b` the type: `t` task (the default), `q`
+question, `b` bug, `e` epic. Tags go on a `: ` line. Absent lines mean the defaults, so a new task
+is only a title and an id, `. 1792321201`: a unix timestamp in UTC (here 2026-10-18T11:00:01Z).
+Header lines go in the order id, priority, type, tags. A title is one sentence that starts in
+lowercase. The full format is in `skill/base.md`.
+
+An epic (`; e`) that `tf` splits stays in `# todo` as `- [-] <title>`; its tasks get the tag
+`e<epic id>`, and when the last of them is done the epic moves to `# done` too.
 
 ## Update
 
@@ -99,7 +103,7 @@ Keys, all under `C-c C-`:
 | Key | Does |
 |---|---|
 | `n` / `p` | next / previous task |
-| `t` | new task below the current one, with an id and priority 50 |
+| `t` | new task below the current one, with an id only (priority 50 and type `t` are the defaults) |
 | `h` / `l` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
 | `s` / `a` | separator below / above the task |
@@ -120,7 +124,7 @@ blocks are highlighted monospace on a subtle background.
 | File | What |
 |---|---|
 | `tasks.tfmd` | Your tasks |
-| `skill/base.md` | The format, and the built-in tags and commands with their full definitions (tf's; replaced by updates) |
+| `skill/base.md` | The format, the task types and the built-in commands with their full definitions (tf's; replaced by updates) |
 | `skill/AGENTS.md` | Points the agent to `skill/base.md` and `tasks.tfmd` |
 | `skill/SKILL.md` | The `tf` skill, linked as `.claude/skills/tf` and `.agents/skills/tf` |
 | `VERSION` | Installed tf version: the release tag, then the commit hash (written by install and update) |

@@ -13,8 +13,9 @@
 ;;                '(tfmd "https://github.com/blitzarx1/tf" nil "tree-sitter-tfmd"))
 ;;   (treesit-install-language-grammar 'tfmd)
 ;;
-;; A new task gets an id (the unix time) and priority 50.  A property marker (`. ', `! ', `; ' or
-;; `: ') typed on a header line moves the line to its place: id, priority, type, tags.
+;; A new task gets an id (the unix time); priority 50, type `t' and no tags are implied.  A
+;; property marker (`. ', `! ', `; ' or `: ') typed on a header line moves the line to its place:
+;; id, priority, type, tags.
 ;;
 ;; The mode keeps lines at 100 columns (auto-fill; the 101st column and beyond, trailing spaces and
 ;; tabs are highlighted),
@@ -87,11 +88,13 @@
 
    :language 'tfmd :feature 'state
    '((state_open) @font-lock-function-name-face
+     (state_split) @font-lock-function-name-face
      (state_done) @success
      (state_cancelled) @shadow)
 
    :language 'tfmd :feature 'title
    '((task_header (state_open) (title) @tf-ts-title-face)
+     (task_header (state_split) (title) @tf-ts-title-face)
      (task_header (state_done) (title) @tf-ts-title-face)
      (task_header (state_cancelled) (title) @tf-ts-cancelled-face)
      (title_continuation (text) @tf-ts-title-face))
@@ -327,13 +330,13 @@ Stops at the first line that is not part of a list in a field."
 
 ;;;; Navigation and editing commands
 
-(defconst tf-ts-mode--header-regexp "^- \\(\\[[ x]\\] \\|~~\\[ \\] \\)"
+(defconst tf-ts-mode--header-regexp "^- \\(\\[[ x-]\\] \\|~~\\[ \\] \\)"
   "Start of a task header line.")
 
 (defun tf-ts-mode--header-at-p (pos)
   "Non-nil if a real task header (not text in a code block) starts at POS."
   (member (treesit-node-type (treesit-node-at pos 'tfmd))
-          '("state_open" "state_done" "state_cancelled")))
+          '("state_open" "state_split" "state_done" "state_cancelled")))
 
 (defun tf-ts-mode-next-task ()
   "Move to the next task header."
@@ -397,8 +400,8 @@ top of the section."
                          "# todo" (concat "- [ ] " (tf-ts-mode--new-header-lines)))))))))
 
 (defun tf-ts-mode--new-header-lines ()
-  "Property lines of a new task: its id (the unix time now) and the default priority."
-  (format "\n    . %d\n    ! 50" (tf-ts-mode--new-id)))
+  "Property lines of a new task: its id (the unix time now); the rest is implied by defaults."
+  (format "\n    . %d" (tf-ts-mode--new-id)))
 
 (defun tf-ts-mode--change-priority (delta)
   "Add DELTA to the priority of the current task, within 0 to 100.
@@ -507,6 +510,7 @@ A task without a priority line gets one, from the default 50."
   "The stage after the one of a task in section HEADING with STATE, as (HEADING . STATE).
 The loop is backlog, todo, done, cancelled (kept in done), back to backlog."
   (cond
+   ((equal state "state_split") (user-error "A split epic is closed by tf with its last task"))
    ((equal state "state_cancelled") '("# backlog" . "state_open"))
    ((equal state "state_done") '("# done" . "state_cancelled"))
    ((equal heading "# backlog") '("# todo" . "state_open"))

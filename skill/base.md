@@ -21,7 +21,10 @@ commands.
 Task header identifies the task and its main properties. The property lines are optional, in this
 order, and indented 4 spaces. Id: `. ` and an integer. Priority: `! ` and an integer from 0 to
 100; default 50, higher is more urgent, and it doesn't change which item `tf` picks. Type: `; `
-and a lowercase word. Tags: `: ` and the tags, comma-separated.
+and a lowercase word, one of the types below. Tags: `: ` and the tags, comma-separated.
+
+A property that is absent has its default: priority 50, type `t`, no tags. A new task is written
+with the title and the id only; the other lines appear when they differ from the default.
 
 ```
 - [ ] <title>
@@ -37,16 +40,27 @@ The title is one sentence that starts with a lowercase letter; it can wrap over 
 has no empty lines. The id is a unix timestamp in seconds (UTC), unique within the file; it reads
 as an RFC3339 date, so `. 1792321201` is `2026-10-18T11:00:01Z`.
 
+## task type
+
+The type says what the item is and how `tf` works it:
+
+- t    Task, the default when there is no `; ` line.
+- q    Question which requires only answer without any changes to be made.
+- b    Bug.
+- e    Epic: potentially huge task which requires decomposition into tasks.
+
 ## task state
 
 ```
 - [ ] not done
+- [-] split into tasks
 - [x] done
 - ~~[ ] <title>~~ cancelled
 ```
 
-A cancelled task's title is struck through: `~~` goes before `[ ]` and after the last word
-of the title, even when the title wraps.
+A `[-]` item is an epic that was split: its tasks carry the tag `e<id>` of the epic (see `tf`),
+and `tf` skips it. A cancelled task's title is struck through: `~~` goes before `[ ]` and after
+the last word of the title, even when the title wraps.
 
 ## task body
 
@@ -87,14 +101,8 @@ tag. The fences go where the field's text starts (column 6).
 
 ## tags
 
-Standard set of tags for marking tasks:
-
-- ?    Question which requires only answer without any changes to be made.
-- b    Bug
-- epic Potentially huge task which requires decomposition and creation of custom tags to mark
-       connected tasks
-
-Your own tags need no registration: write them on the `: ` line.
+Tags are free: they need no registration, write them on the `: ` line. A tag `e<id>` links a task
+to the epic with that id.
 
 ## commands
 
@@ -115,21 +123,26 @@ Built-in commands:
   D : Work the first open item of `# todo`.
 
       1. Take the first item under `# todo` that is still `[ ]` (not done, not struck through)
-         and not blank (skip empty placeholders). Never pick from `# backlog`. If no open item
-         is left in `# todo`, say so and stop.
-      2. Question (tag `?`): investigate and answer in chat, without changing the project. Then
+         and not blank (skip empty placeholders and `[-]` split epics). Never pick from
+         `# backlog`. If no open item is left in `# todo`, say so and stop.
+      2. Question (type `q`): investigate and answer in chat, without changing the project. Then
          record the answer without asking: add a `C : ` field with the short answer, mark the
          item `[x]` and move it to the top of `# done`.
-      3. Task or bug (tag `b`; find the root cause first): its `D : ` and `C : ` fields are the
-         spec. Plan the implementation and ask about anything they leave open; implement only
-         after the owner approves the plan.
-      4. Epic (tag `epic`): plan a split into tasks instead of an implementation. In plan mode,
+      3. Task or bug (type `t` or `b`; find the root cause first): its `D : ` and `C : ` fields
+         are the spec. Plan the implementation and ask about anything they leave open; implement
+         only after the owner approves the plan.
+      4. Epic (type `e`): plan a split into tasks instead of an implementation. In plan mode,
          investigate first, then ask the owner about everything the split depends on (scope,
-         approach choices, granularity) before writing it; mark the new tasks with a new tag.
-         After approval, put the tasks in `# todo` in the epic's place, mark
-         the epic `[x]` with a `C : ` listing them and move it to the top of `# done`.
+         approach choices, granularity) before writing it. After approval:
+
+         * the epic stays in `# todo` as `- [-] <title>` with its `D : `, an id and `; e`; if it
+           has no id, create one (a unix timestamp, unique in the file);
+         * put the new tasks in `# todo` right below it, each tagged `e<epic id>` and with a new
+           tag of its own for the group; add a `C : ` to the epic listing them.
       5. When the work is finished and verified, mark the item `[x]`, add a short `C : ` summary
-         (commit hash if any) and move it to the top of `# done`.
+         (commit hash if any) and move it to the top of `# done`. If the item is tagged
+         `e<id>` and no open item with that tag is left, close the epic with that id the same
+         way (`[x]`, a `C : ` summary, top of `# done`).
 
 - `tf <n>`
 
@@ -157,8 +170,8 @@ Built-in commands:
       2. Map each task:
          * title to the header `- [ ] <title>`, description to `D : `, notes and comments to
            `C : `, keeping the source wording and reflowing it to the format;
-         * priority to the priority line, scaled to 0-100; bug, question and epic to `b`, `?`
-           and `epic`; other labels to the project's own tags;
+         * priority to the priority line, scaled to 0-100; bug, question and epic to the types
+           `b`, `q` and `e`; other labels to the project's own tags;
          * open tasks marked as current, next, in progress or otherwise scoped go to `# todo`,
            other open tasks to `# backlog`. If the source has no such distinction and it can't
            be inferred, all open tasks go to `# backlog`;

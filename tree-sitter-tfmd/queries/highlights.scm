@@ -3,10 +3,12 @@
 (separator) @punctuation.delimiter
 
 (state_open) @markup.list.unchecked
+(state_split) @markup.list.unchecked
 (state_done) @markup.list.checked
 (state_cancelled) @comment
 
 (task_header (state_open) (title) @markup.strong)
+(task_header (state_split) (title) @markup.strong)
 (task_header (state_done) (title) @comment)
 (task_header (state_cancelled) (title) @markup.strikethrough)
 (title_continuation (text) @markup.strong)

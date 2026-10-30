@@ -49,11 +49,12 @@ export default grammar({
     ),
 
     task_header: $ => seq(
-      choice($.state_open, $.state_done, $.state_cancelled),
+      choice($.state_open, $.state_split, $.state_done, $.state_cancelled),
       $.title,
       "\n",
     ),
     state_open: $ => "- [ ] ",
+    state_split: $ => "- [-] ",
     state_done: $ => "- [x] ",
     state_cancelled: $ => "- ~~[ ] ",
     title: $ => $._inline,
