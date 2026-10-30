@@ -74,8 +74,8 @@ export default grammar({
     type_value: $ => /[a-z]+/,
     tags: $ => seq($.tags_marker, $.tag, repeat(seq($._tag_separator, $.tag)), "\n"),
     tags_marker: $ => token(prec(1, /    : /)),
-    tag: $ => /[^,\s]+/,
-    _tag_separator: $ => /,? +/,
+    tag: $ => /\S+/,
+    _tag_separator: $ => / +/,
 
     // `  D : text` and `  C : text`, followed by paragraphs, lists and code blocks.
     field: $ => seq(
