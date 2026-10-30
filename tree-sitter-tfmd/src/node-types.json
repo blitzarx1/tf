@@ -280,6 +280,10 @@
           "named": true
         },
         {
+          "type": "state_split",
+          "named": true
+        },
+        {
           "type": "title",
           "named": true
         }
@@ -450,6 +454,10 @@
   },
   {
     "type": "state_open",
+    "named": true
+  },
+  {
+    "type": "state_split",
     "named": true
   },
   {

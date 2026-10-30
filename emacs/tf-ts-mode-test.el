@@ -200,7 +200,7 @@
     (insert "new")
     (should (equal (tf-ts-mode-test--no-ids (buffer-string))
                    (concat "# todo\n\n- [ ] one\n\n" tf-ts-mode--separator
-                           "\n\n- [ ] new\n    . ID\n    ! 50\n\n" tf-ts-mode--separator
+                           "\n\n- [ ] new\n    . ID\n\n" tf-ts-mode--separator
                            "\n\n- [ ] two\n")))))
 
 (ert-deftest tf-ts-mode-test-new-last ()
@@ -210,7 +210,7 @@
     (tf-ts-mode-new)
     (should (equal (tf-ts-mode-test--no-ids (buffer-string))
                    (concat "# todo\n\n- [ ] one\n\n  D : text\n\n" tf-ts-mode--separator
-                           "\n\n- [ ] \n    . ID\n    ! 50\n")))
+                           "\n\n- [ ] \n    . ID\n")))
     (should (looking-at "\n    \\. "))))
 
 (ert-deftest tf-ts-mode-test-new-outside-todo ()
@@ -221,7 +221,7 @@
     (tf-ts-mode-new)
     (insert "new")
     (should (equal (tf-ts-mode-test--no-ids (buffer-string))
-                   (concat "# todo\n\n- [ ] new\n    . ID\n    ! 50\n\n" tf-ts-mode--separator
+                   (concat "# todo\n\n- [ ] new\n    . ID\n\n" tf-ts-mode--separator
                            "\n\n- [ ] one\n\n# backlog\n\n- [ ] later\n")))))
 
 (ert-deftest tf-ts-mode-test-add-description ()
@@ -300,6 +300,10 @@
                  "# todo\n\n- [ ] one\n\n# backlog\n"))
   (should (equal (tf-ts-mode-test--advance "# todo\n\n- [ ] one\n\n# done\n")
                  "# todo\n\n# done\n\n- [x] one\n")))
+
+(ert-deftest tf-ts-mode-test-advance-split-epic ()
+  (let ((text (concat "# todo\n\n- [-] epic\n    . 1\n    ; e\n")))
+    (should-error (tf-ts-mode-test--advance text "] epic") :type 'user-error)))
 
 (ert-deftest tf-ts-mode-test-advance-todo-to-done ()
   (should (equal (tf-ts-mode-test--advance

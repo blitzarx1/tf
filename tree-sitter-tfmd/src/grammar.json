@@ -227,6 +227,10 @@
             },
             {
               "type": "SYMBOL",
+              "name": "state_split"
+            },
+            {
+              "type": "SYMBOL",
               "name": "state_done"
             },
             {
@@ -248,6 +252,10 @@
     "state_open": {
       "type": "STRING",
       "value": "- [ ] "
+    },
+    "state_split": {
+      "type": "STRING",
+      "value": "- [-] "
     },
     "state_done": {
       "type": "STRING",

@@ -18,6 +18,45 @@ empty sections
     (heading)))
 
 ================================================================================:sep
+split epic state
+================================================================================:sep
+# todo
+
+- [-] split epic
+    . 1792321201
+    ; e
+
+--------------------------------
+
+- [ ] linked task
+    : e1792321201
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_split)
+        (title))
+      (id
+        (id_marker)
+        (id_value))
+      (type
+        (type_marker)
+        (type_value)))
+    (separator_line
+      (separator))
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (tags
+        (tags_marker)
+        (tag)))))
+
+================================================================================:sep
 task states and wrapped titles
 ================================================================================:sep
 # todo
