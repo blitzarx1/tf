@@ -40,7 +40,9 @@
 ;; and fenced blocks get a background.  A fenced block's band ends at column 100 and the text past
 ;; it is hidden (shown as `...') until point enters the block, which shows whole with its
 ;; band running to the window edge; see `tf-ts-mode-hide-overflow'.
-;; Triple backticks in a task title are highlighted as a warning.
+;; A code line indented less than 4 columns past its fence, or a closing fence off its opener's
+;; column, is marked as a warning, and TAB moves it into place.  Triple backticks in a task title
+;; are highlighted as a warning.
 
 ;;; Code:
 
@@ -179,6 +181,31 @@ so the indent carries the background too; `tf-ts-mode--update-folds' ends or ext
     (goto-char limit)
     nil))
 
+(defun tf-ts-mode--fontify-code-indent (limit)
+  "Warn about misindented lines of fenced blocks up to LIMIT.
+A code line is at least 4 columns deeper than the opening fence, the closing fence is at its
+column."
+  (let ((beg (point)))
+    (dolist (block (treesit-query-capture (treesit-buffer-root-node 'tfmd)
+                                          '((code_block) @block) beg limit t))
+      (let* ((open (tf-ts-mode--child block "fence_open"))
+             (col (and open (tf-ts-mode--column-at (save-excursion
+                                                      (goto-char (treesit-node-start open))
+                                                      (back-to-indentation)
+                                                      (point))))))
+        (when col
+          (dolist (node (treesit-node-children block))
+            (let ((type (treesit-node-type node)))
+              (when (member type '("code_line" "fence_close"))
+                (save-excursion
+                  (goto-char (treesit-node-start node))
+                  (let ((indent (current-indentation)))
+                    (when (if (equal type "code_line") (< indent (+ col 4)) (/= indent col))
+                      (add-face-text-property (line-beginning-position) (line-end-position)
+                                              'font-lock-warning-face))))))))))
+    (goto-char limit)
+    nil))
+
 (defun tf-ts-mode--fontify-title-fences (limit)
   "Warn about triple backticks in titles up to LIMIT: a title has no fenced block."
   (let ((beg (point)))
@@ -206,6 +233,7 @@ so the indent carries the background too; `tf-ts-mode--update-folds' ends or ext
   "Font-lock keywords for the code band and what the format forbids.
 The band comes first so the overflow rule can see it: text past the limit, trailing space, tabs."
   `((tf-ts-mode--fontify-code-blocks)
+    (tf-ts-mode--fontify-code-indent)
     (tf-ts-mode--fontify-title-fences)
     (tf-ts-mode--fontify-overflow 1 'tf-ts-overflow-face t)
     ("[ \t]+$" 0 'trailing-whitespace t)
@@ -226,22 +254,24 @@ The band comes first so the overflow rule can see it: text past the limit, trail
     ov))
 
 (defun tf-ts-mode--shape-line (eol)
-  "Make the fenced block line ending at EOL end at the ruler: fold or pad it.
+  "Make the fenced block line ending at EOL end at the ruler: fold it and pad it.
 Point is at the start of the line.  A line past the column limit is cut so that the `...' marker
-ends at the band width; a shorter line is padded with the code background up to it."
-  (let ((width (tf-ts-mode--band-width)))
+ends one cell before the band width; every line then ends with a stretch of the code background up
+to the band width, so all rows end the same way and flush with the ruler."
+  (let ((width (tf-ts-mode--band-width))
+        (folded nil))
     (move-to-column tf-ts-mode-column-limit)
-    (cond
-     ((and (>= (current-column) tf-ts-mode-column-limit) (< (point) eol))
-      (when tf-ts-mode-hide-overflow
-        (move-to-column (- width (length tf-ts-mode--fold-marker)))
-        (tf-ts-mode--overlay (point) eol 'evaporate t
-                             'display (propertize tf-ts-mode--fold-marker
-                                                  'face 'tf-ts-code-face))))
-     ((< (current-column) width)
+    (when (and tf-ts-mode-hide-overflow
+               (>= (current-column) tf-ts-mode-column-limit) (< (point) eol))
+      (move-to-column (- width 1 (length tf-ts-mode--fold-marker)))
+      (tf-ts-mode--overlay (point) eol 'evaporate t
+                           'display (propertize tf-ts-mode--fold-marker
+                                                'face 'tf-ts-code-face))
+      (setq folded t))
+    (when (or folded (progn (goto-char eol) (< (current-column) width)))
       (tf-ts-mode--overlay
        eol eol 'after-string
-       (propertize " " 'face 'tf-ts-code-face 'display `(space :align-to ,width)))))))
+       (propertize " " 'face 'tf-ts-code-face 'display `(space :align-to ,width))))))
 
 (defun tf-ts-mode--update-folds (&optional buffer)
   "Shape the fenced blocks of BUFFER to the column limit, except the block at point.
@@ -417,7 +447,8 @@ Stops at the first line that is not part of a list in a field."
                      ;; the line under an opening fence is the code, 4 columns deeper
                      (+ (current-indentation)
                         (if (looking-at tf-ts-mode--fence-regexp) 4 0))))
-            (t (current-indentation))))
+            ;; code is at least 4 columns deeper than its fence; deeper is its own nesting
+            (t (max (current-indentation) (+ 4 (tf-ts-mode--opening-fence-indentation))))))
      ;; blank line: where the paragraph above puts its text
      (blank
       (cond ((null pnode) 0)

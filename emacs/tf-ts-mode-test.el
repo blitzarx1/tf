@@ -622,11 +622,11 @@
       (goto-char (point-min))
       (tf-ts-mode--update-folds)
       (let ((folds (tf-ts-mode-test--folds)))
-        ;; only the long code line, from column 98 so the `...' ends at the ruler; the long
+        ;; only the long code line, from column 97 so the `...' ends one cell before the ruler; the long
         ;; field line is not folded
         (should (= (length folds) 1))
         (goto-char (caar folds))
-        (should (= (current-column) 98))
+        (should (= (current-column) 97))
         (should (string-match-p "y" (buffer-substring (line-beginning-position) (point))))
         (should (equal (cadr (car folds)) "...")))
       ;; point inside the block reveals it
@@ -654,9 +654,10 @@
                                  (overlays-in (line-beginning-position) eol)))
                  (pad (seq-find (lambda (o) (overlay-get o 'after-string))
                                 (overlays-in eol eol))))
-            (push (cond (fold (goto-char (overlay-start fold))
-                              (+ (current-column) (length (overlay-get fold 'display))))
-                        (pad (nth 2 (get-text-property
+            (when fold                      ; the marker ends one cell before the pad
+              (goto-char (overlay-start fold))
+              (should (= (+ (current-column) (length (overlay-get fold 'display))) 100)))
+            (push (cond (pad (nth 2 (get-text-property
                                      0 'display (overlay-get pad 'after-string)))))
                   ends)))
         (should (equal ends '(101 101 101)))))))
@@ -696,15 +697,13 @@
     (goto-char (point-max))
     (search-backward "bbb")                 ; point in the second block
     (tf-ts-mode--update-folds)
-    ;; the first block: every line shorter than the limit (fences, short, blank) is padded up to
+    ;; the first block: every line (fences, short, blank, the folded one) is padded up to
     ;; it, the long one is folded instead; the band is not extended to the window edge
     (let ((pads (tf-ts-mode-test--overlays 'after-string)))
-      (should (= (length pads) 4))
+      (should (= (length pads) 5))             ; fences, short, blank and the folded line
       (dolist (o pads)
         (should (equal (get-text-property 0 'display (overlay-get o 'after-string))
                        `(space :align-to ,(tf-ts-mode--band-width))))
-        (should (< (save-excursion (goto-char (overlay-start o)) (current-column))
-                   tf-ts-mode-column-limit))
         (should (< (overlay-start o)
                    (save-excursion (goto-char (point-max)) (search-backward "      ```\n          bbb")
                                    (point))))))
@@ -725,6 +724,38 @@
                                        (tf-ts-mode-test--face-at text "wraps ```")))
     (should-not (tf-ts-mode-test--has-face 'font-lock-warning-face
                                            (tf-ts-mode-test--face-at text "a ```")))))
+
+(ert-deftest tf-ts-mode-test-code-indent ()
+  (let ((text (concat "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n    low\n"
+                      "                deep\n          ok\n  ```\n")))
+    (with-temp-buffer
+      (insert text)
+      (tf-ts-mode)
+      (font-lock-ensure)
+      (cl-flet ((warn-p (word) (goto-char (point-min)) (search-forward word)
+                  (tf-ts-mode-test--has-face 'font-lock-warning-face
+                                             (get-text-property (1- (point)) 'face))))
+        (should (warn-p "low"))
+        (should-not (warn-p "deep"))
+        (should-not (warn-p "ok"))
+        (goto-char (point-min))
+        (search-forward "  ```\n" nil t 1)
+        (goto-char (point-max))
+        (forward-line -1)
+        (should (tf-ts-mode-test--has-face 'font-lock-warning-face
+                                           (get-text-property (+ (point) 3) 'face))))
+      ;; TAB: a short line goes to fence + 4, a deeper one stays, the closing fence aligns
+      (goto-char (point-min))
+      (search-forward "low")
+      (indent-for-tab-command)
+      (should (= (current-indentation) 10))
+      (search-forward "deep")
+      (indent-for-tab-command)
+      (should (= (current-indentation) 16))
+      (goto-char (point-max))
+      (forward-line -1)
+      (indent-for-tab-command)
+      (should (= (current-indentation) 6)))))
 
 (ert-deftest tf-ts-mode-test-unclosed-backtick-is-plain ()
   (should-not (tf-ts-mode-test--has-face
