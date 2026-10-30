@@ -560,6 +560,52 @@
     (should (tf-ts-mode-test--has-face 'tf-ts-code-face
                                        (tf-ts-mode-test--face-at text "      ```")))))
 
+(ert-deftest tf-ts-mode-test-bug-type-is-red ()
+  (let ((text "# todo\n\n- [ ] a\n    ; b\n\n- [ ] b\n    ; q\n\n- [ ] c\n    ; e\n"))
+    (with-temp-buffer
+      (insert text)
+      (tf-ts-mode)
+      (font-lock-ensure)
+      (goto-char (point-min))
+      (search-forward "; b")
+      (should (tf-ts-mode-test--has-face 'tf-ts-bug-face (get-text-property (1- (point)) 'face)))
+      (should-not (tf-ts-mode-test--has-face 'tf-ts-bug-face
+                                             (get-text-property (- (point) 3) 'face)))
+      (search-forward "; q")
+      (should-not (tf-ts-mode-test--has-face 'tf-ts-bug-face
+                                             (get-text-property (1- (point)) 'face)))
+      (search-forward "; e")
+      (should-not (tf-ts-mode-test--has-face 'tf-ts-bug-face
+                                             (get-text-property (1- (point)) 'face))))))
+
+(ert-deftest tf-ts-mode-test-code-block-band ()
+  (let ((text (concat "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n          " (make-string 110 ?y)
+                      "\n\n          z\n      ```\nafter\n")))
+    (with-temp-buffer
+      (insert text)
+      (tf-ts-mode)
+      (font-lock-ensure)
+      (cl-flet ((code-p (pos) (tf-ts-mode-test--has-face
+                               'tf-ts-code-face (get-text-property pos 'face))))
+        (goto-char (point-min))
+        (search-forward "      ```")
+        (should (code-p (- (point) 7)))     ; fence indent
+        (should (code-p (point)))           ; newline after the fence
+        (forward-line 1)
+        (should (code-p (line-beginning-position)))
+        (end-of-line)
+        (should (code-p (point)))           ; newline after a code line
+        ;; text past the limit keeps the band, not the overflow face
+        (move-to-column 105)
+        (should (code-p (point)))
+        (should-not (tf-ts-mode-test--has-face 'tf-ts-overflow-face
+                                               (get-text-property (point) 'face)))
+        (forward-line 1)                    ; blank line inside the block
+        (should (code-p (point)))
+        (search-forward "      ```\n")
+        (should (code-p (1- (point))))      ; newline after the closing fence
+        (should-not (code-p (point)))))))   ; the line after the block
+
 (ert-deftest tf-ts-mode-test-unclosed-backtick-is-plain ()
   (should-not (tf-ts-mode-test--has-face
                'tf-ts-code-face
