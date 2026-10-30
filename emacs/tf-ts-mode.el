@@ -37,7 +37,9 @@
 ;;
 ;; Typing: a backtick pairs with its mate; a third backtick on an empty line makes a fenced block
 ;; (the fences on their own lines, the code line between them 4 columns deeper).  `inline code'
-;; and fenced blocks are highlighted monospace.
+;; and fenced blocks are highlighted monospace.  In a fenced block the text past column 100 is
+;; hidden (shown as an ellipsis) until point enters the block; see `tf-ts-mode-hide-overflow'.
+;; Triple backticks in a task title are highlighted as a warning.
 
 ;;; Code:
 
@@ -70,6 +72,10 @@
   '((((background light)) :inherit fixed-pitch :background "grey92" :extend t)
     (((background dark)) :inherit fixed-pitch :background "grey22" :extend t))
   "Face for inline code and fenced blocks: monospace on a subtle background.")
+(defcustom tf-ts-mode-hide-overflow t
+  "Non-nil: hide the text past the column limit in fenced blocks, except in the block at point."
+  :type 'boolean)
+
 (defface tf-ts-bug-face '((t :inherit error :weight bold))
   "Face for the bug task type, the letter `b'.")
 (defface tf-ts-cancelled-face '((t :inherit shadow :strike-through t))
@@ -162,6 +168,18 @@ fence, so indent, blank lines and the line ends carry the background too."
     (goto-char limit)
     nil))
 
+(defun tf-ts-mode--fontify-title-fences (limit)
+  "Warn about triple backticks in titles up to LIMIT: a title has no fenced block."
+  (let ((beg (point)))
+    (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd)
+                                         '((title) @t (title_continuation) @t) beg limit t))
+      (save-excursion
+        (goto-char (treesit-node-start node))
+        (while (search-forward "```" (treesit-node-end node) t)
+          (add-face-text-property (- (point) 3) (point) 'font-lock-warning-face))))
+    (goto-char limit)
+    nil))
+
 (defun tf-ts-mode--fontify-overflow (limit)
   "Match text past the column limit before LIMIT, except inside a fenced block."
   (let (found)
@@ -177,9 +195,53 @@ fence, so indent, blank lines and the line ends carry the background too."
   "Font-lock keywords for the code band and what the format forbids.
 The band comes first so the overflow rule can see it: text past the limit, trailing space, tabs."
   `((tf-ts-mode--fontify-code-blocks)
+    (tf-ts-mode--fontify-title-fences)
     (tf-ts-mode--fontify-overflow 1 'tf-ts-overflow-face t)
     ("[ \t]+$" 0 'trailing-whitespace t)
     ("\t" 0 'tf-ts-tab-face t)))
+
+;;;; Hidden overflow
+
+(defun tf-ts-mode--clear-folds ()
+  "Remove the overlays that hide overflowing text."
+  (remove-overlays (point-min) (point-max) 'category 'tf-ts-fold))
+
+(defun tf-ts-mode--update-folds (&optional buffer)
+  "Hide the text past the column limit in fenced blocks of BUFFER, except in the block at point."
+  (with-current-buffer (or buffer (current-buffer))
+    (tf-ts-mode--clear-folds)
+    (when (and tf-ts-mode-hide-overflow (treesit-ready-p 'tfmd t))
+      (save-excursion
+        (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd)
+                                             '((code_block) @block) nil nil t))
+          (let ((from (treesit-node-start node))
+                (to (treesit-node-end node)))
+            (unless (and (>= (point) from) (<= (point) to))
+              (goto-char from)
+              (while (< (point) to)
+                (let ((eol (line-end-position)))
+                  (move-to-column tf-ts-mode-column-limit)
+                  (when (and (= (current-column) tf-ts-mode-column-limit) (< (point) eol))
+                    (let ((ov (make-overlay (point) eol nil t)))
+                      (overlay-put ov 'category 'tf-ts-fold)
+                      (overlay-put ov 'evaporate t)
+                      (overlay-put ov 'display (propertize "…" 'face 'tf-ts-code-face)))))
+                (forward-line 1)))))))))
+
+(defvar-local tf-ts-mode--fold-timer nil)
+
+(defun tf-ts-mode--schedule-folds ()
+  "Refresh the hidden overflow once Emacs is idle, so a command or edit ends before it runs."
+  (unless tf-ts-mode--fold-timer
+    (setq tf-ts-mode--fold-timer
+          (run-with-idle-timer
+           0 nil
+           (let ((buf (current-buffer)))
+             (lambda ()
+               (when (buffer-live-p buf)
+                 (with-current-buffer buf
+                   (setq tf-ts-mode--fold-timer nil)
+                   (tf-ts-mode--update-folds)))))))))
 
 ;;;; Tree helpers
 
@@ -831,6 +893,8 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   (treesit-major-mode-setup)
   (font-lock-add-keywords nil (tf-ts-mode--violation-keywords) 'append)
   (add-hook 'eldoc-documentation-functions #'tf-ts-mode--eldoc nil t)
+  (add-hook 'post-command-hook #'tf-ts-mode--schedule-folds nil t)
+  (add-hook 'change-major-mode-hook #'tf-ts-mode--clear-folds nil t)
   (add-hook 'post-self-insert-hook #'tf-ts-mode--snap-property nil t)
   (add-hook 'post-self-insert-hook #'tf-ts-mode--electric-backtick nil t)
   (auto-fill-mode 1)

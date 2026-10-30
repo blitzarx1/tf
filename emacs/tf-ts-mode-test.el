@@ -606,6 +606,42 @@
         (should (code-p (1- (point))))      ; newline after the closing fence
         (should-not (code-p (point)))))))   ; the line after the block
 
+(defun tf-ts-mode-test--folds ()
+  (sort (mapcar (lambda (o) (list (overlay-start o) (overlay-get o 'display)))
+                (seq-filter (lambda (o) (eq (overlay-get o 'category) 'tf-ts-fold))
+                            (overlays-in (point-min) (point-max))))
+        (lambda (a b) (< (car a) (car b)))))
+
+(ert-deftest tf-ts-mode-test-overflow-fold ()
+  (let ((text (concat "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n          short\n          "
+                      (make-string 110 ?y) "\n      ```\n\n  D : " (make-string 105 ?z) "\n")))
+    (with-temp-buffer
+      (insert text)
+      (tf-ts-mode)
+      (goto-char (point-min))
+      (tf-ts-mode--update-folds)
+      (let ((folds (tf-ts-mode-test--folds)))
+        ;; only the long code line, from column 100; the long field line is not folded
+        (should (= (length folds) 1))
+        (goto-char (caar folds))
+        (should (= (current-column) 100))
+        (should (string-match-p "y" (buffer-substring (line-beginning-position) (point))))
+        (should (equal (cadr (car folds)) "…")))
+      ;; point inside the block reveals it
+      (goto-char (point-min))
+      (search-forward "short")
+      (tf-ts-mode--update-folds)
+      (should-not (tf-ts-mode-test--folds)))))
+
+(ert-deftest tf-ts-mode-test-title-fence-warning ()
+  (let ((text "# todo\n\n- [ ] title ```x``` end\n      wraps ``` too\n\n  D : a ``` b\n"))
+    (should (tf-ts-mode-test--has-face 'font-lock-warning-face
+                                       (tf-ts-mode-test--face-at text "title ```")))
+    (should (tf-ts-mode-test--has-face 'font-lock-warning-face
+                                       (tf-ts-mode-test--face-at text "wraps ```")))
+    (should-not (tf-ts-mode-test--has-face 'font-lock-warning-face
+                                           (tf-ts-mode-test--face-at text "a ```")))))
+
 (ert-deftest tf-ts-mode-test-unclosed-backtick-is-plain ()
   (should-not (tf-ts-mode-test--has-face
                'tf-ts-code-face
