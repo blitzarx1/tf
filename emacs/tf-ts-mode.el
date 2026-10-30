@@ -38,7 +38,7 @@
 ;; Typing: a backtick pairs with its mate; a third backtick on an empty line makes a fenced block
 ;; (the fences on their own lines, the code line between them 4 columns deeper).  `inline code'
 ;; and fenced blocks get a background.  A fenced block's band ends at column 100 and the text past
-;; it is hidden (shown as an ellipsis) until point enters the block, which shows whole with its
+;; it is hidden (shown as `...') until point enters the block, which shows whole with its
 ;; band running to the window edge; see `tf-ts-mode-hide-overflow'.
 ;; Triple backticks in a task title are highlighted as a warning.
 
@@ -80,6 +80,13 @@ It keeps the buffer's font, so a character fills one grid cell and lines end at 
 (defcustom tf-ts-mode-hide-overflow t
   "Non-nil: hide the text past the column limit in fenced blocks, except in the block at point."
   :type 'boolean)
+
+(defconst tf-ts-mode--fold-marker "..."
+  "Shown instead of the hidden text of a fenced block line: plain characters, one cell each.")
+
+(defun tf-ts-mode--band-width ()
+  "Cells of the code band of a folded block; the column ruler is drawn in the next one."
+  (1+ tf-ts-mode-column-limit))
 
 (defface tf-ts-bug-face '((t :inherit error :weight bold))
   "Face for the bug task type, the letter `b'.")
@@ -219,25 +226,26 @@ The band comes first so the overflow rule can see it: text past the limit, trail
     ov))
 
 (defun tf-ts-mode--shape-line (eol)
-  "Make the fenced block line ending at EOL end at the column limit: fold or pad it.
-Point is at the start of the line.  A line past the limit is cut one column before it, so the
-ellipsis ends at the ruler; a shorter line is padded with the code background up to the ruler."
-  (move-to-column tf-ts-mode-column-limit)
-  (cond
-   ((and (>= (current-column) tf-ts-mode-column-limit) (< (point) eol))
-    (when tf-ts-mode-hide-overflow
-      (move-to-column (1- tf-ts-mode-column-limit))
-      (tf-ts-mode--overlay (point) eol 'evaporate t
-                           'display (propertize "…" 'face 'tf-ts-code-face))))
-   ((< (current-column) tf-ts-mode-column-limit)
-    (tf-ts-mode--overlay
-     eol eol 'after-string
-     (propertize " " 'face 'tf-ts-code-face
-                 'display `(space :align-to ,tf-ts-mode-column-limit))))))
+  "Make the fenced block line ending at EOL end at the ruler: fold or pad it.
+Point is at the start of the line.  A line past the column limit is cut so that the `...' marker
+ends at the band width; a shorter line is padded with the code background up to it."
+  (let ((width (tf-ts-mode--band-width)))
+    (move-to-column tf-ts-mode-column-limit)
+    (cond
+     ((and (>= (current-column) tf-ts-mode-column-limit) (< (point) eol))
+      (when tf-ts-mode-hide-overflow
+        (move-to-column (- width (length tf-ts-mode--fold-marker)))
+        (tf-ts-mode--overlay (point) eol 'evaporate t
+                             'display (propertize tf-ts-mode--fold-marker
+                                                  'face 'tf-ts-code-face))))
+     ((< (current-column) width)
+      (tf-ts-mode--overlay
+       eol eol 'after-string
+       (propertize " " 'face 'tf-ts-code-face 'display `(space :align-to ,width)))))))
 
 (defun tf-ts-mode--update-folds (&optional buffer)
   "Shape the fenced blocks of BUFFER to the column limit, except the block at point.
-Lines past the limit are folded behind an ellipsis, shorter ones padded, so the band ends at
+Lines past the limit are folded behind `...', shorter ones padded, so the band ends at
 the ruler.  The block holding point is shown whole, its band running to the window edge."
   (with-current-buffer (or buffer (current-buffer))
     (tf-ts-mode--clear-folds)
@@ -922,7 +930,7 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   (setq-local indent-tabs-mode nil)
   (setq-local fill-column tf-ts-mode-column-limit)
   (setq-local normal-auto-fill-function #'tf-ts-mode--auto-fill)
-  (setq-local display-fill-column-indicator-column tf-ts-mode-column-limit)
+  (setq-local display-fill-column-indicator-column (tf-ts-mode--band-width))
   (treesit-major-mode-setup)
   (font-lock-add-keywords nil (tf-ts-mode--violation-keywords) 'append)
   (add-hook 'eldoc-documentation-functions #'tf-ts-mode--eldoc nil t)

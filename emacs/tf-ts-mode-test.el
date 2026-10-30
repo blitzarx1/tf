@@ -622,18 +622,44 @@
       (goto-char (point-min))
       (tf-ts-mode--update-folds)
       (let ((folds (tf-ts-mode-test--folds)))
-        ;; only the long code line, from column 99 so the ellipsis ends at the ruler; the long
+        ;; only the long code line, from column 98 so the `...' ends at the ruler; the long
         ;; field line is not folded
         (should (= (length folds) 1))
         (goto-char (caar folds))
-        (should (= (current-column) 99))
+        (should (= (current-column) 98))
         (should (string-match-p "y" (buffer-substring (line-beginning-position) (point))))
-        (should (equal (cadr (car folds)) "…")))
+        (should (equal (cadr (car folds)) "...")))
       ;; point inside the block reveals it
       (goto-char (point-min))
       (search-forward "short")
       (tf-ts-mode--update-folds)
       (should-not (tf-ts-mode-test--folds)))))
+
+(ert-deftest tf-ts-mode-test-band-flush-with-ruler ()
+  (let ((text (concat "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n          short\n          "
+                      (make-string 90 ?e) "\n          " (make-string 110 ?y) "\n      ```\n")))
+    (with-temp-buffer
+      (insert text)
+      (tf-ts-mode)
+      (should (= display-fill-column-indicator-column 101))
+      (goto-char (point-min))
+      (tf-ts-mode--update-folds)
+      (let (ends)
+        ;; every line of the block ends at column 101: padded to it, or cut so `...' ends there
+        (dolist (word '("short" "eeee" "yyyy"))
+          (goto-char (point-min))
+          (search-forward word)
+          (let* ((eol (line-end-position))
+                 (fold (seq-find (lambda (o) (stringp (overlay-get o 'display)))
+                                 (overlays-in (line-beginning-position) eol)))
+                 (pad (seq-find (lambda (o) (overlay-get o 'after-string))
+                                (overlays-in eol eol))))
+            (push (cond (fold (goto-char (overlay-start fold))
+                              (+ (current-column) (length (overlay-get fold 'display))))
+                        (pad (nth 2 (get-text-property
+                                     0 'display (overlay-get pad 'after-string)))))
+                  ends)))
+        (should (equal ends '(101 101 101)))))))
 
 (defconst tf-ts-mode-test--two-blocks
   (concat "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n          " (make-string 110 ?a)
@@ -676,7 +702,7 @@
       (should (= (length pads) 4))
       (dolist (o pads)
         (should (equal (get-text-property 0 'display (overlay-get o 'after-string))
-                       `(space :align-to ,tf-ts-mode-column-limit)))
+                       `(space :align-to ,(tf-ts-mode--band-width))))
         (should (< (save-excursion (goto-char (overlay-start o)) (current-column))
                    tf-ts-mode-column-limit))
         (should (< (overlay-start o)
