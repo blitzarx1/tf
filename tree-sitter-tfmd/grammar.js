@@ -77,13 +77,13 @@ export default grammar({
     tag: $ => /\S+/,
     _tag_separator: $ => / +/,
 
-    // `  D : text` and `  C : text`, followed by paragraphs, lists and code blocks.
+    // `  D : text`, `  C : text` and `  A : text`, followed by paragraphs, lists and code blocks.
     field: $ => seq(
       $._field_head,
       repeat(choice($._blank, $.list_item, $.text_line, $.code_block, $._invalid_line)),
     ),
     _field_head: $ => seq($.field_label, optional($.field_text), "\n"),
-    field_label: $ => /  [DC] : ?/,
+    field_label: $ => /  [DCA] : ?/,
     field_text: $ => $._inline,
 
     // Running text: plain chunks and single-line `inline code`. A lone or unclosed backtick is plain.

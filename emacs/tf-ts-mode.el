@@ -462,7 +462,7 @@ Stops at the first line that is not part of a list in a field."
      ((and (string-match-p "\\`- \\(\\[[ x0-9]+\\]\\|~~\\[ \\]\\) " text)
            (or (not in-field) (zerop (current-indentation))))
       0)
-     ((string-match-p "\\`[DC] :\\( \\|\\'\\)" text) 2)
+     ((string-match-p "\\`[DCA] :\\( \\|\\'\\)" text) 2)
      ((and in-header (string-match-p "\\`[.!;:] " text)) 4)
      ((string-match-p "\\``\\{3\\}" text) (if in-field 6 0))
      ((string-match-p "\\`\\([*-]\\|[0-9]+\\.\\) " text)
@@ -620,7 +620,7 @@ A task without a priority line gets one, from the default 50."
     (tf-ts-mode--id-date (string-to-number (match-string 1)))))
 
 (defun tf-ts-mode--fields (task label)
-  "Field nodes of TASK whose label is LABEL (\"D\" or \"C\"), or all fields when nil."
+  "Field nodes of TASK whose label is LABEL (\"D\", \"C\" or \"A\"), or all fields when nil."
   (seq-filter
    (lambda (f)
      (or (null label)
@@ -987,7 +987,7 @@ and with the epic's tags.  Any open task can be split; a split epic gets more su
   "A property line of a task header: id, priority, type or tags.")
 
 (defconst tf-ts-mode--header-end-regexp
-  (concat "^\\(?:[ \t]*$\\|  [DC] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
+  (concat "^\\(?:[ \t]*$\\|  [DCA] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
   "A line that ends the header region of a task: blank, a field, a heading, a task or a separator.")
 
 (defun tf-ts-mode--property-rank (char)

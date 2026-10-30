@@ -21,7 +21,7 @@ commands.
 Task header identifies the task and its main properties. The property lines are optional, in this
 order, and indented 4 spaces. Id: `. ` and an integer. Priority: `! ` and an integer from 0 to
 100; default 50, higher is more urgent, and it doesn't change which item `tf` picks. Type: `; `
-and a lowercase word, one of the types below. Tags: `: ` and the tags, comma-separated.
+and a lowercase word, one of the types below. Tags: `: ` and the tags, separated by spaces.
 
 A property that is absent has its default: priority 50, type `t`, no tags. A new task is written
 with the title and the id only; the other lines appear when they differ from the default.
@@ -31,14 +31,14 @@ with the title and the id only; the other lines appear when they differ from the
     . <id>
     ! <priority>
     ; <type>
-    : <tag1>, <tag2>
+    : <tag1> <tag2>
 ```
 
 A long title wraps onto lines indented 4 spaces, before the property lines.
 
 The title is one sentence that starts with a lowercase letter; it can wrap over several lines but
-has no empty lines. The id is a unix timestamp in seconds (UTC), unique within the file; it reads
-as an RFC3339 date, so `. 1792321201` is `2026-10-18T11:00:01Z`.
+has no empty lines and no triple backticks. The id is a unix timestamp in seconds (UTC), unique
+within the file; it reads as an RFC3339 date, so `. 1792321201` is `2026-10-18T11:00:01Z`.
 
 ## task type
 
@@ -53,13 +53,16 @@ The type says what the item is and how `tf` works it:
 
 ```
 - [ ] not done
-- [-] split into tasks
+- [<n>] split into tasks, <n> of them still open
 - [x] done
 - ~~[ ] <title>~~ cancelled
 ```
 
-A `[-]` item is an epic that was split: its tasks carry the tag `e<id>` of the epic (see `tf`),
-and `tf` skips it. A cancelled task's title is struck through: `~~` goes before `[ ]` and after
+A `[<n>]` item is an epic that was split: its tasks carry the tag `e<id>` of the epic (see `tf`),
+and `<n>` counts those of them that are open, in `# todo` or `# backlog` (done and cancelled ones
+don't count). The count is kept up to date when a task changes stage; at `[0]` the epic stays
+open until the owner closes it (`C-c C-v` in the editor) or `tf` does (see step 1). A cancelled
+task's title is struck through: `~~` goes before `[ ]` and after
 the last word of the title, even when the title wraps.
 
 ## task body
@@ -72,9 +75,13 @@ inside a field start after a blank line, with the marker aligned under the field
 6); wrapped lines align under the item's text, and a nested list's marker aligns under its
 parent's text.
 
+`D : ` is the description and `C : ` the owner's comment. `A : ` is the agent's: its answers,
+comments, summaries and follow-ups. The agent never writes `C : `.
+
 ```
   D : <description>
   C : <comment>
+  A : <agent note>
 ```
 
 ```
@@ -122,32 +129,47 @@ Built-in commands:
 
   D : Work the first open item of `# todo`.
 
-      1. Take the first item under `# todo` that is still `[ ]` (not done, not struck through)
-         and not blank (skip empty placeholders and `[-]` split epics). Never pick from
-         `# backlog`. If no open item is left in `# todo`, say so and stop.
+      1. Take the first item under `# todo` that is still `[ ]` or `[<n>]` (not done, not struck
+         through) and not blank (skip empty placeholders). Never pick from `# backlog`. If no
+         open item is left in `# todo`, say so and stop. A split epic `[<n>]` is not worked
+         itself:
+
+         * if some of its tasks (tagged `e<id>`) are open in `# todo`, ask the owner whether
+           you may proceed with the first of them, and on yes work that task as step 2 or 3
+           says; on no, stop;
+         * if `<n>` is 0, ask whether to close it (`[x]`, an `A : ` summary, top of `# done`);
+         * otherwise do nothing for it and take the next open item.
       2. Question (type `q`): investigate and answer in chat, without changing the project. Then
-         record the answer without asking: add a `C : ` field with the short answer, mark the
+         record the answer without asking: add an `A : ` field with the short answer, mark the
          item `[x]` and move it to the top of `# done`.
       3. Task or bug (type `t` or `b`; find the root cause first): its `D : ` and `C : ` fields
-         are the spec. Plan the implementation and ask about anything they leave open; implement
-         only after the owner approves the plan.
-      4. Epic (type `e`): plan a split into tasks instead of an implementation. In plan mode,
-         investigate first, then ask the owner about everything the split depends on (scope,
-         approach choices, granularity) before writing it. After approval:
+         are the spec (`A : ` holds earlier agent notes). Plan the implementation and ask about
+         anything they leave open; implement only after the owner approves the plan.
+      4. Epic (type `e`, state `[ ]`, no task tagged `e<id>` yet): plan a split into tasks
+         instead of an implementation. Only such an epic is split by the agent; if tasks tagged
+         with its id exist, it is already split: its header must read `[<n>]`, fix `<n>` and
+         go on as step 1 says. In plan mode, investigate first, then ask the owner about
+         everything the split depends on (scope, approach choices, granularity) before writing
+         it. After approval:
 
-         * the epic stays in `# todo` as `- [-] <title>` with its `D : `, an id and `; e`; if it
-           has no id, create one (a unix timestamp, unique in the file);
-         * put the new tasks in `# todo` right below it, each tagged `e<epic id>` and with a new
-           tag of its own for the group; add a `C : ` to the epic listing them.
-      5. When the work is finished and verified, mark the item `[x]`, add a short `C : ` summary
+         * the epic stays in `# todo` as `- [<n>] <title>` with its `D : `, an id and `; e`,
+           `<n>` being the number of new tasks; if it has no id, create one (a unix timestamp,
+           unique in the file);
+         * put the new tasks in `# todo` right below it, each tagged `e<epic id>` plus the
+           epic's own tags; add an `A : ` to the epic listing them.
+
+         The owner can also split any task by hand (`C-c C-s` in the editor), which turns it
+         into an epic of the same shape.
+      5. When the work is finished and verified, mark the item `[x]`, add a short `A : ` summary
          (commit hash if any) and move it to the top of `# done`. If the item is tagged
-         `e<id>` and no open item with that tag is left, close the epic with that id the same
-         way (`[x]`, a `C : ` summary, top of `# done`).
+         `e<id>`, lower `<n>` in the header of the epic with that id by one; at `[0]` leave the
+         epic open, it is closed as step 1 says.
 
 - `tf <n>`
 
   D : Work the first `<n>` open items of `# todo` together (`tf` is `tf 1`). Pick them as step 1
-      of `tf` does; if fewer are open, take those and say so.
+      of `tf` does, counting open tasks, not epics: a split epic is asked about once, as there, and
+      its open tasks are the items; if fewer are open, take those and say so.
 
       1. Questions among them: answer in the same reply and close them as step 2 of `tf` does.
       2. Tasks, bugs and epics: one plan for all of them, with a section per item in `# todo`

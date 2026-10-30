@@ -152,6 +152,19 @@
     (search-forward "  D :")
     (should (eq (get-text-property (- (point) 2) 'face) 'font-lock-keyword-face))))
 
+(ert-deftest tf-ts-mode-test-agent-field ()
+  "An `A :' field is parsed, highlighted and indented like `C :'."
+  (let ((text "# done\n\n- [x] one\n\n  A : note\n\n      more\n"))
+    (tf-ts-mode-test--with-buffer text
+      (font-lock-mode 1)
+      (font-lock-ensure)
+      (goto-char (point-min))
+      (search-forward "  A :")
+      (should (eq (get-text-property (- (point) 2) 'face) 'font-lock-keyword-face))
+      (should (= (length (tf-ts-mode--fields (tf-ts-mode--task-node) "A")) 1))
+      (indent-region (point-min) (point-max))
+      (should (equal (buffer-string) text)))))
+
 (ert-deftest tf-ts-mode-test-long-line-highlight ()
   (tf-ts-mode-test--with-buffer (concat "# todo\n\n- [ ] " (make-string 100 ?x) "\n")
     (font-lock-mode 1)

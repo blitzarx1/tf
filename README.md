@@ -48,8 +48,8 @@ agree. Your old files stay as they are.
 | `tf migrate <path>` | reads your old tracker (a file or a folder), shows what goes to `# todo`, `# backlog` and `# done`, and appends the tasks to `tasks.tfmd` once you agree. Open tasks it can't place go to `# backlog`. |
 
 Edit `tasks.tfmd` yourself whenever you like. Add new items to `# todo` or `# backlog`, move them
-between the two, and add `D : ` descriptions and `C : ` comments. The agent re-reads the file
-every time.
+between the two, and add `D : ` descriptions and `C : ` comments. The agent answers in `A : `
+fields and re-reads the file every time.
 
 ## Example
 
@@ -73,7 +73,7 @@ the task to `# done`:
 
   D : After logging in from /settings the user lands on /. Keep the page they came from.
 
-  C : Root cause: the auth callback ignored `next`. It now checks `next` against the site
+  A : Root cause: the auth callback ignored `next`. It now checks `next` against the site
       origin and redirects there; added a test for /settings. 3f9c2a1
 ```
 
