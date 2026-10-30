@@ -590,27 +590,28 @@
         (goto-char (point-min))
         (search-forward "      ```")
         (should (code-p (- (point) 7)))     ; fence indent
-        (should (code-p (point)))           ; newline after the fence
         (forward-line 1)
         (should (code-p (line-beginning-position)))
-        (end-of-line)
-        (should (code-p (point)))           ; newline after a code line
         ;; text past the limit keeps the band, not the overflow face
         (move-to-column 105)
         (should (code-p (point)))
         (should-not (tf-ts-mode-test--has-face 'tf-ts-overflow-face
                                                (get-text-property (point) 'face)))
-        (forward-line 1)                    ; blank line inside the block
-        (should (code-p (point)))
-        (search-forward "      ```\n")
-        (should (code-p (1- (point))))      ; newline after the closing fence
+        (search-forward "      ```")
+        (should (code-p (1- (point))))      ; the closing fence
+        (forward-line 1)
         (should-not (code-p (point)))))))   ; the line after the block
 
+(defun tf-ts-mode-test--overlays (prop)
+  "Overlays of the mode carrying PROP, in buffer order."
+  (sort (seq-filter (lambda (o) (and (eq (overlay-get o 'category) 'tf-ts-fold)
+                                     (overlay-get o prop)))
+                    (overlays-in (point-min) (point-max)))
+        (lambda (a b) (< (overlay-start a) (overlay-start b)))))
+
 (defun tf-ts-mode-test--folds ()
-  (sort (mapcar (lambda (o) (list (overlay-start o) (overlay-get o 'display)))
-                (seq-filter (lambda (o) (eq (overlay-get o 'category) 'tf-ts-fold))
-                            (overlays-in (point-min) (point-max))))
-        (lambda (a b) (< (car a) (car b)))))
+  (mapcar (lambda (o) (list (overlay-start o) (overlay-get o 'display)))
+          (tf-ts-mode-test--overlays 'display)))
 
 (ert-deftest tf-ts-mode-test-overflow-fold ()
   (let ((text (concat "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n          short\n          "
@@ -621,10 +622,11 @@
       (goto-char (point-min))
       (tf-ts-mode--update-folds)
       (let ((folds (tf-ts-mode-test--folds)))
-        ;; only the long code line, from column 100; the long field line is not folded
+        ;; only the long code line, from column 99 so the ellipsis ends at the ruler; the long
+        ;; field line is not folded
         (should (= (length folds) 1))
         (goto-char (caar folds))
-        (should (= (current-column) 100))
+        (should (= (current-column) 99))
         (should (string-match-p "y" (buffer-substring (line-beginning-position) (point))))
         (should (equal (cadr (car folds)) "…")))
       ;; point inside the block reveals it
@@ -632,6 +634,62 @@
       (search-forward "short")
       (tf-ts-mode--update-folds)
       (should-not (tf-ts-mode-test--folds)))))
+
+(defconst tf-ts-mode-test--two-blocks
+  (concat "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n          " (make-string 110 ?a)
+          "\n          short\n\n      ```\n\n      ```\n          " (make-string 110 ?b)
+          "\n      ```\n"))
+
+(ert-deftest tf-ts-mode-test-fold-follows-point ()
+  (with-temp-buffer
+    (insert tf-ts-mode-test--two-blocks)
+    (tf-ts-mode)
+    (cl-flet ((folded-p (needle)
+                (goto-char (point-min))
+                (search-forward needle)
+                (end-of-line)
+                (seq-some (lambda (o) (and (overlay-get o 'display) (= (overlay-end o) (point))))
+                          (overlays-in (point-min) (point-max)))))
+      ;; point in the second block: only the first one folds
+      (goto-char (point-max))
+      (search-backward "bbb")
+      (tf-ts-mode--update-folds)
+      (should (folded-p "aaa"))
+      (should-not (folded-p "bbb"))
+      ;; point in the first block: only the second one folds
+      (goto-char (point-min))
+      (search-forward "short")
+      (tf-ts-mode--update-folds)
+      (should-not (folded-p "aaa"))
+      (should (folded-p "bbb")))))
+
+(ert-deftest tf-ts-mode-test-band-ends-at-column-limit ()
+  (with-temp-buffer
+    (insert tf-ts-mode-test--two-blocks)
+    (tf-ts-mode)
+    (goto-char (point-max))
+    (search-backward "bbb")                 ; point in the second block
+    (tf-ts-mode--update-folds)
+    ;; the first block: every line shorter than the limit (fences, short, blank) is padded up to
+    ;; it, the long one is folded instead; the band is not extended to the window edge
+    (let ((pads (tf-ts-mode-test--overlays 'after-string)))
+      (should (= (length pads) 4))
+      (dolist (o pads)
+        (should (equal (get-text-property 0 'display (overlay-get o 'after-string))
+                       `(space :align-to ,tf-ts-mode-column-limit)))
+        (should (< (save-excursion (goto-char (overlay-start o)) (current-column))
+                   tf-ts-mode-column-limit))
+        (should (< (overlay-start o)
+                   (save-excursion (goto-char (point-max)) (search-backward "      ```\n          bbb")
+                                   (point))))))
+    (should (= (length (tf-ts-mode-test--overlays 'display)) 1))
+    ;; the second block, holding point, is shown whole with an extending band
+    (let ((bands (tf-ts-mode-test--overlays 'face)))
+      (should (= (length bands) 1))
+      (should (eq (overlay-get (car bands) 'face) 'tf-ts-code-band-face))
+      (should (face-attribute 'tf-ts-code-band-face :extend nil t)))
+    (should (eq (face-attribute 'tf-ts-code-face :extend nil t) 'unspecified))
+    (should (eq (face-attribute 'tf-ts-code-face :family nil t) 'unspecified))))
 
 (ert-deftest tf-ts-mode-test-title-fence-warning ()
   (let ((text "# todo\n\n- [ ] title ```x``` end\n      wraps ``` too\n\n  D : a ``` b\n"))

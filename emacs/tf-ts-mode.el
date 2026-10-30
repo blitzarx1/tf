@@ -37,8 +37,9 @@
 ;;
 ;; Typing: a backtick pairs with its mate; a third backtick on an empty line makes a fenced block
 ;; (the fences on their own lines, the code line between them 4 columns deeper).  `inline code'
-;; and fenced blocks are highlighted monospace.  In a fenced block the text past column 100 is
-;; hidden (shown as an ellipsis) until point enters the block; see `tf-ts-mode-hide-overflow'.
+;; and fenced blocks get a background.  A fenced block's band ends at column 100 and the text past
+;; it is hidden (shown as an ellipsis) until point enters the block, which shows whole with its
+;; band running to the window edge; see `tf-ts-mode-hide-overflow'.
 ;; Triple backticks in a task title are highlighted as a warning.
 
 ;;; Code:
@@ -69,9 +70,13 @@
 (defface tf-ts-tab-face '((t :inherit whitespace-tab))
   "Face for tabs, which the format forbids.")
 (defface tf-ts-code-face
-  '((((background light)) :inherit fixed-pitch :background "grey92" :extend t)
-    (((background dark)) :inherit fixed-pitch :background "grey22" :extend t))
-  "Face for inline code and fenced blocks: monospace on a subtle background.")
+  '((((background light)) :background "grey92")
+    (((background dark)) :background "grey22"))
+  "Face for inline code and fenced blocks: a subtle background.
+It keeps the buffer's font, so a character fills one grid cell and lines end at the column ruler.")
+(defface tf-ts-code-band-face
+  '((t :inherit tf-ts-code-face :extend t))
+  "Face for the fenced block at point: its band runs to the right edge of the window.")
 (defcustom tf-ts-mode-hide-overflow t
   "Non-nil: hide the text past the column limit in fenced blocks, except in the block at point."
   :type 'boolean)
@@ -152,9 +157,9 @@ make the whole query fail.")
 ;;;; Format violations
 
 (defun tf-ts-mode--fontify-code-blocks (limit)
-  "Paint every fenced block up to LIMIT with `tf-ts-code-face', whole lines edge to edge.
-The band runs from the start of the opening fence's line through the newline after the closing
-fence, so indent, blank lines and the line ends carry the background too."
+  "Paint every fenced block up to LIMIT with `tf-ts-code-face', whole lines.
+The band runs from the start of the opening fence's line to the end of the closing fence's line,
+so the indent carries the background too; `tf-ts-mode--update-folds' ends or extends it."
   (let ((beg (point)))
     (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd)
                                          '((code_block) @block) beg limit t))
@@ -163,8 +168,7 @@ fence, so indent, blank lines and the line ends carry the background too."
         (let ((from (line-beginning-position)))
           ;; the node may end after its last newline, on the next line's start
           (goto-char (max from (1- (treesit-node-end node))))
-          (add-face-text-property from (min (point-max) (1+ (line-end-position)))
-                                  'tf-ts-code-face t))))
+          (add-face-text-property from (line-end-position) 'tf-ts-code-face t))))
     (goto-char limit)
     nil))
 
@@ -203,30 +207,59 @@ The band comes first so the overflow rule can see it: text past the limit, trail
 ;;;; Hidden overflow
 
 (defun tf-ts-mode--clear-folds ()
-  "Remove the overlays that hide overflowing text."
+  "Remove the overlays that shape fenced blocks to the column limit."
   (remove-overlays (point-min) (point-max) 'category 'tf-ts-fold))
 
+(defun tf-ts-mode--overlay (beg end &rest props)
+  "Make an overlay of BEG to END that `tf-ts-mode--clear-folds' removes, with PROPS."
+  (let ((ov (make-overlay beg end nil t)))
+    (overlay-put ov 'category 'tf-ts-fold)
+    (while props
+      (overlay-put ov (pop props) (pop props)))
+    ov))
+
+(defun tf-ts-mode--shape-line (eol)
+  "Make the fenced block line ending at EOL end at the column limit: fold or pad it.
+Point is at the start of the line.  A line past the limit is cut one column before it, so the
+ellipsis ends at the ruler; a shorter line is padded with the code background up to the ruler."
+  (move-to-column tf-ts-mode-column-limit)
+  (cond
+   ((and (>= (current-column) tf-ts-mode-column-limit) (< (point) eol))
+    (when tf-ts-mode-hide-overflow
+      (move-to-column (1- tf-ts-mode-column-limit))
+      (tf-ts-mode--overlay (point) eol 'evaporate t
+                           'display (propertize "…" 'face 'tf-ts-code-face))))
+   ((< (current-column) tf-ts-mode-column-limit)
+    (tf-ts-mode--overlay
+     eol eol 'after-string
+     (propertize " " 'face 'tf-ts-code-face
+                 'display `(space :align-to ,tf-ts-mode-column-limit))))))
+
 (defun tf-ts-mode--update-folds (&optional buffer)
-  "Hide the text past the column limit in fenced blocks of BUFFER, except in the block at point."
+  "Shape the fenced blocks of BUFFER to the column limit, except the block at point.
+Lines past the limit are folded behind an ellipsis, shorter ones padded, so the band ends at
+the ruler.  The block holding point is shown whole, its band running to the window edge."
   (with-current-buffer (or buffer (current-buffer))
     (tf-ts-mode--clear-folds)
-    (when (and tf-ts-mode-hide-overflow (treesit-ready-p 'tfmd t))
+    (when (treesit-ready-p 'tfmd t)
       (save-excursion
-        (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd)
-                                             '((code_block) @block) nil nil t))
-          (let ((from (treesit-node-start node))
-                (to (treesit-node-end node)))
-            (unless (and (>= (point) from) (<= (point) to))
-              (goto-char from)
-              (while (< (point) to)
-                (let ((eol (line-end-position)))
-                  (move-to-column tf-ts-mode-column-limit)
-                  (when (and (= (current-column) tf-ts-mode-column-limit) (< (point) eol))
-                    (let ((ov (make-overlay (point) eol nil t)))
-                      (overlay-put ov 'category 'tf-ts-fold)
-                      (overlay-put ov 'evaporate t)
-                      (overlay-put ov 'display (propertize "…" 'face 'tf-ts-code-face)))))
-                (forward-line 1)))))))))
+        (let ((pos (point)))
+          (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd)
+                                               '((code_block) @block) nil nil t))
+            (let* ((from (treesit-node-start node))
+                   ;; the node may end after its last newline, on the next line's start
+                   (last-eol (progn (goto-char (max from (1- (treesit-node-end node))))
+                                    (line-end-position)))
+                   (more t))
+              (if (and (>= pos from) (<= pos last-eol))
+                  (tf-ts-mode--overlay from (min (point-max) (1+ last-eol))
+                                       'face 'tf-ts-code-band-face)
+                (goto-char from)
+                (beginning-of-line)
+                (while more
+                  (let ((eol (line-end-position)))
+                    (tf-ts-mode--shape-line eol)
+                    (setq more (and (< eol last-eol) (zerop (forward-line 1))))))))))))))
 
 (defvar-local tf-ts-mode--fold-timer nil)
 
