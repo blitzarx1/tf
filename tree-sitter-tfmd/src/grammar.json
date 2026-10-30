@@ -517,7 +517,7 @@
     },
     "field_label": {
       "type": "PATTERN",
-      "value": "  [DC] : ?"
+      "value": "  [DCA] : ?"
     },
     "field_text": {
       "type": "SYMBOL",
