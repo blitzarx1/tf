@@ -54,7 +54,7 @@ export default grammar({
       "\n",
     ),
     state_open: $ => "- [ ] ",
-    state_split: $ => "- [-] ",
+    state_split: $ => /- \[[0-9]+\] /,
     state_done: $ => "- [x] ",
     state_cancelled: $ => "- ~~[ ] ",
     title: $ => $._inline,

@@ -83,8 +83,10 @@ is only a title and an id, `. 1792321201`: a unix timestamp in UTC (here 2026-10
 Header lines go in the order id, priority, type, tags. A title is one sentence that starts in
 lowercase. The full format is in `skill/base.md`.
 
-An epic (`; e`) that `tf` splits stays in `# todo` as `- [-] <title>`; its tasks get the tag
-`e<epic id>`, and when the last of them is done the epic moves to `# done` too.
+An epic (`; e`) that `tf` splits stays in `# todo` as `- [<n>] <title>`, `<n>` being the number of
+its open tasks (in `# todo` or `# backlog`); they get the tag `e<epic id>` plus the epic's tags.
+When `<n>` reaches 0 the epic stays open: you close it, or `tf` asks to. `tf` asks before working
+the first open task of a split epic.
 
 ## Update
 
@@ -106,8 +108,9 @@ Keys, all under `C-c C-`:
 | `t` | new task below the current one, with an id only (priority 50 and type `t` are the defaults) |
 | `h` / `l` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
-| `s` / `a` | separator below / above the task |
-| `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog |
+| `s` | split the task into subtasks (asks for titles until an empty one); it becomes an epic `- [<n>]` |
+| `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog. An epic moves with its subtasks when they share a stage; with some open and some not, nothing moves; the epic's `<n>` follows its subtasks |
+| `C-c SPC` / `C-c S-SPC` | separator below / above the task |
 | `u` | run `.tf/update.sh` after a confirmation |
 | `i` | show the task's id as a date (also shown by eldoc on the id line) |
 

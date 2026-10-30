@@ -254,8 +254,8 @@
       "value": "- [ ] "
     },
     "state_split": {
-      "type": "STRING",
-      "value": "- [-] "
+      "type": "PATTERN",
+      "value": "- \\[[0-9]+\\] "
     },
     "state_done": {
       "type": "STRING",
