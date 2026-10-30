@@ -301,9 +301,110 @@
   (should (equal (tf-ts-mode-test--advance "# todo\n\n- [ ] one\n\n# done\n")
                  "# todo\n\n# done\n\n- [x] one\n")))
 
-(ert-deftest tf-ts-mode-test-advance-split-epic ()
-  (let ((text (concat "# todo\n\n- [-] epic\n    . 1\n    ; e\n")))
+(defun tf-ts-mode-test--epic (heading state subs)
+  "Text of an epic with id 1 in HEADING as STATE and subtasks SUBS, a list of (HEADING . STATE)."
+  (let ((sections (make-hash-table :test 'equal)) (n 1))
+    (puthash heading (list (format "- %s epic\n    . 1\n    ; e\n" state)) sections)
+    (dolist (sub subs)
+      (setq n (1+ n))
+      (puthash (car sub)
+               (append (gethash (car sub) sections)
+                       (list (format "- %s sub%d\n    . %d\n    : e1\n" (cdr sub) n n)))
+               sections))
+    (mapconcat (lambda (h)
+                 (concat h "\n\n" (mapconcat #'identity (gethash h sections)
+                                              (concat "\n" tf-ts-mode-test--sep "\n\n"))))
+               '("# todo" "# backlog" "# done") "\n")))
+
+(defun tf-ts-mode-test--headers (text)
+  "Lines of TEXT that start a task."
+  (seq-filter (lambda (l) (string-prefix-p "- " l)) (split-string text "\n")))
+
+(ert-deftest tf-ts-mode-test-epic-todo-all-todo-to-done ()
+  (let ((out (tf-ts-mode-test--advance
+              (tf-ts-mode-test--epic "# todo" "[2]" '(("# todo" . "[ ]") ("# todo" . "[ ]")))
+              "] epic")))
+    (should (equal (tf-ts-mode-test--headers out)
+                   '("- [x] epic" "- [x] sub2" "- [x] sub3")))
+    (should (string-match-p "\\`# todo\n+# backlog\n+# done\n+- \\[x\\] epic" out))))
+
+(ert-deftest tf-ts-mode-test-epic-backlog-to-todo ()
+  (let ((out (tf-ts-mode-test--advance
+              (tf-ts-mode-test--epic "# backlog" "[2]" '(("# backlog" . "[ ]") ("# backlog" . "[ ]")))
+              "] epic")))
+    (should (equal (tf-ts-mode-test--headers out)
+                   '("- [2] epic" "- [ ] sub2" "- [ ] sub3")))
+    (should (string-prefix-p "# todo\n\n- [2] epic" out))))
+
+(ert-deftest tf-ts-mode-test-epic-todo-mixed-refuses ()
+  (let ((text (tf-ts-mode-test--epic "# todo" "[1]" '(("# todo" . "[ ]") ("# done" . "[x]")))))
     (should-error (tf-ts-mode-test--advance text "] epic") :type 'user-error)))
+
+(ert-deftest tf-ts-mode-test-epic-no-open-subtasks-closes-alone ()
+  (let ((out (tf-ts-mode-test--advance
+              (tf-ts-mode-test--epic "# todo" "[0]" '(("# done" . "[x]")))
+              "] epic")))
+    (should (equal (tf-ts-mode-test--headers out) '("- [x] epic" "- [x] sub2")))
+    (should (string-prefix-p "# todo\n\n# backlog" out))))
+
+(ert-deftest tf-ts-mode-test-epic-done-to-cancelled-and-back ()
+  (let ((out (tf-ts-mode-test--advance
+              (tf-ts-mode-test--epic "# done" "[x]" '(("# done" . "[x]")))
+              "] epic")))
+    (should (equal (tf-ts-mode-test--headers out) '("- ~~[ ] epic~~" "- ~~[ ] sub2~~")))
+    (let ((back (tf-ts-mode-test--advance out "] epic")))
+      (should (equal (tf-ts-mode-test--headers back) '("- [1] epic" "- [ ] sub2")))
+      (should (string-match-p "# backlog\n\n- \\[1\\] epic" back)))))
+
+(ert-deftest tf-ts-mode-test-epic-counter-follows-subtask ()
+  (let* ((text (tf-ts-mode-test--epic "# todo" "[2]" '(("# todo" . "[ ]") ("# backlog" . "[ ]"))))
+         (done (tf-ts-mode-test--advance text "] sub2")))
+    (should (member "- [1] epic" (tf-ts-mode-test--headers done)))
+    (let ((back (tf-ts-mode-test--advance
+                 (concat "# todo\n\n- [0] epic\n    . 1\n    ; e\n\n# backlog\n\n# done\n\n"
+                         "- ~~[ ] sub~~\n    . 2\n    : e1\n")
+                 "] sub")))
+      (should (member "- [1] epic" (tf-ts-mode-test--headers back))))
+    (should (member "- [2] epic" (tf-ts-mode-test--headers (tf-ts-mode-test--advance text "] sub3"))))))
+
+(ert-deftest tf-ts-mode-test-epic-last-subtask-keeps-epic-open ()
+  (let ((out (tf-ts-mode-test--advance
+              (tf-ts-mode-test--epic "# todo" "[1]" '(("# todo" . "[ ]"))) "] sub2")))
+    (should (member "- [0] epic" (tf-ts-mode-test--headers out)))
+    (should (string-prefix-p "# todo\n\n- [0] epic" out))))
+
+(defun tf-ts-mode-test--split (text marker titles)
+  "Split the task of TEXT containing MARKER into TITLES; return the buffer."
+  (with-temp-buffer
+    (insert text)
+    (tf-ts-mode)
+    (goto-char (point-min))
+    (search-forward marker)
+    (tf-ts-mode-split-epic titles)
+    (buffer-string)))
+
+(ert-deftest tf-ts-mode-test-split-bug-with-tags ()
+  (let ((out (tf-ts-mode-test--split "# todo\n\n- [ ] fix it\n    . 1\n    ; b\n    : ui\n\n  D : why\n"
+                                     "] fix" '("first part" "second part"))))
+    (should (string-match-p "\\`# todo\n\n- \\[2\\] fix it\n    \\. 1\n    ; e\n    : ui\n\n  D : why\n" out))
+    (should (string-match-p
+             (concat "  D : why\n\n" tf-ts-mode-test--sep "\n\n- \\[ \\] first part\n    \\. [0-9]+\n"
+                     "    : e1, ui\n\n" tf-ts-mode-test--sep "\n\n- \\[ \\] second part\n")
+             out))))
+
+(ert-deftest tf-ts-mode-test-split-creates-id-and-type ()
+  (let ((out (tf-ts-mode-test--split "# todo\n\n- [ ] plain\n" "] plain" '("a"))))
+    (should (string-match-p "\\`# todo\n\n- \\[1\\] plain\n    \\. [0-9]+\n    ; e\n" out))
+    (should (string-match-p "    : e[0-9]+\n\\'" out))))
+
+(ert-deftest tf-ts-mode-test-split-existing-epic-adds-to-counter ()
+  (let ((out (tf-ts-mode-test--split
+              (tf-ts-mode-test--epic "# todo" "[1]" '(("# todo" . "[ ]"))) "] epic" '("x" "y"))))
+    (should (member "- [3] epic" (tf-ts-mode-test--headers out)))))
+
+(ert-deftest tf-ts-mode-test-split-refusals ()
+  (should-error (tf-ts-mode-test--split "# todo\n\n- [ ] a\n" "] a" nil) :type 'user-error)
+  (should-error (tf-ts-mode-test--split "# done\n\n- [x] a\n" "] a" '("b")) :type 'user-error))
 
 (ert-deftest tf-ts-mode-test-advance-todo-to-done ()
   (should (equal (tf-ts-mode-test--advance

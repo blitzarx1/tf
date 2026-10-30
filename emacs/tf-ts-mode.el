@@ -27,13 +27,16 @@
 ;;                         `# todo', else at the top of the section
 ;;   d                     add a `D :' field (or a new paragraph in the existing one)
 ;;   m                     add a `C :' field (comment)
-;;   s / a                 add a separator below / above the current task
+;;   s                     split the task into subtasks (asks for titles): it becomes an epic
+;;                         `- [<n>]', n the number of its open subtasks
 ;;   v                     move the task one stage on: backlog, todo, done, cancelled, backlog
+;;                         (an epic moves with its subtasks, or refuses; see
+;;                         `tf-ts-mode-advance-task')
 ;;   u                     run `.tf/update.sh' (after a confirmation)
 ;;   i                     show the id of the task as an RFC3339 UTC date (eldoc does the same
 ;;                         with point on the id line)
 ;;   h / l                 raise / lower the priority of the task by 10 (0 to 100)
-;;   C-c SPC / C-c S-SPC   the same (separator below / above)
+;;   C-c SPC / C-c S-SPC   add a separator below / above the current task
 ;;
 ;; Typing: a backtick pairs with its mate; a third backtick on an empty line makes a fenced block
 ;; (the fences on their own lines, the code line between them 4 columns deeper).  `inline code'
@@ -456,7 +459,7 @@ Stops at the first line that is not part of a list in a field."
             (t (tf-ts-mode--text-column pnode))))
      ((string-match-p "\\`# \\(todo\\|backlog\\|done\\|tags\\|commands\\) *\\'" text) 0)
      ((string-match-p (concat "\\`" tf-ts-mode--separator "\\'") text) 0)
-     ((and (string-match-p "\\`- \\(\\[[ x]\\]\\|~~\\[ \\]\\) " text)
+     ((and (string-match-p "\\`- \\(\\[[ x0-9]+\\]\\|~~\\[ \\]\\) " text)
            (or (not in-field) (zerop (current-indentation))))
       0)
      ((string-match-p "\\`[DC] :\\( \\|\\'\\)" text) 2)
@@ -499,7 +502,7 @@ Stops at the first line that is not part of a list in a field."
 
 ;;;; Navigation and editing commands
 
-(defconst tf-ts-mode--header-regexp "^- \\(\\[[ x-]\\] \\|~~\\[ \\] \\)"
+(defconst tf-ts-mode--header-regexp "^- \\(\\[[ x0-9]+\\] \\|~~\\[ \\] \\)"
   "Start of a task header line.")
 
 (defun tf-ts-mode--header-at-p (pos)
@@ -679,7 +682,6 @@ A task without a priority line gets one, from the default 50."
   "The stage after the one of a task in section HEADING with STATE, as (HEADING . STATE).
 The loop is backlog, todo, done, cancelled (kept in done), back to backlog."
   (cond
-   ((equal state "state_split") (user-error "A split epic is closed by tf with its last task"))
    ((equal state "state_cancelled") '("# backlog" . "state_open"))
    ((equal state "state_done") '("# done" . "state_cancelled"))
    ((equal heading "# backlog") '("# todo" . "state_open"))
@@ -724,8 +726,12 @@ The second value is the offset in the text where the title ends."
 
 (defun tf-ts-mode--restate (text title-end from to)
   "TEXT of a task with its state changed from the node type FROM to TO.
-TITLE-END is the offset where its last title line ends."
-  (let ((prefix (if (equal from "state_cancelled") 8 6))
+TITLE-END is the offset where its last title line ends.  A split epic leaves its counter."
+  (let ((prefix (cond ((equal from "state_cancelled") 8)
+                      ((equal from "state_split")
+                       (string-match "\\`- \\[[0-9]+\\] " text)
+                       (match-end 0))
+                      (t 6)))
         (rest (substring text title-end)))
     (concat (pcase to
               ("state_open" "- [ ] ")
@@ -760,23 +766,195 @@ Returns the position of TEXT."
                     ((eobp) "\n")
                     (t "\n\n"))))))
 
+;;;; Epics
+
+(defun tf-ts-mode--all-tasks ()
+  "All task nodes of the buffer, in buffer order."
+  (let (tasks)
+    (dolist (section (treesit-node-children (treesit-buffer-root-node 'tfmd)))
+      (when (equal (treesit-node-type section) "task_section")
+        (dolist (c (treesit-node-children section))
+          (when (equal (treesit-node-type c) "task") (push c tasks)))))
+    (nreverse tasks)))
+
+(defun tf-ts-mode--task-state (task)
+  "Node type of the state of TASK: state_open, state_split, state_done or state_cancelled."
+  (treesit-node-type (treesit-node-child (tf-ts-mode--child task "task_header") 0)))
+
+(defun tf-ts-mode--task-stage (task)
+  "Stage of TASK: `backlog', `todo', `done' or `cancelled'."
+  (let ((state (tf-ts-mode--task-state task))
+        (heading (tf-ts-mode--section-heading (treesit-node-parent task))))
+    (cond ((equal state "state_cancelled") 'cancelled)
+          ((equal state "state_done") 'done)
+          ((equal heading "# todo") 'todo)
+          ((equal heading "# backlog") 'backlog)
+          (t 'done))))
+
+(defun tf-ts-mode--task-tags (task)
+  "The tags of TASK, a list of strings."
+  (split-string (or (tf-ts-mode--property-value task 3) "") "[, ]+" t))
+
+(defun tf-ts-mode--epic-id (task)
+  "Id of TASK if its type is `e' and it has an id, else nil."
+  (and (equal (tf-ts-mode--property-value task 2) "e")
+       (let ((id (tf-ts-mode--property-value task 0)))
+         (and id (string-match-p "\\`[0-9]+\\'" id) id))))
+
+(defun tf-ts-mode--task-by-id (id)
+  "The task node with the id ID, or nil."
+  (seq-find (lambda (task) (equal (tf-ts-mode--property-value task 0) id))
+            (tf-ts-mode--all-tasks)))
+
+(defun tf-ts-mode--subtasks (id)
+  "Task nodes tagged `e<ID>', in buffer order."
+  (let ((tag (concat "e" id)))
+    (seq-filter (lambda (task) (member tag (tf-ts-mode--task-tags task)))
+                (tf-ts-mode--all-tasks))))
+
+(defun tf-ts-mode--sync-epic (id)
+  "Write the number of open subtasks (todo or backlog) into the header of the epic ID.
+An open epic with subtasks becomes `- [<n>]'; a done or cancelled one is left alone."
+  (when-let* ((epic (tf-ts-mode--task-by-id id))
+              (subs (tf-ts-mode--subtasks id)))
+    (when (and (member (tf-ts-mode--task-state epic) '("state_open" "state_split"))
+               (memq (tf-ts-mode--task-stage epic) '(todo backlog)))
+      (let ((n (seq-count (lambda (task) (memq (tf-ts-mode--task-stage task) '(todo backlog)))
+                          subs)))
+        (save-excursion
+          (goto-char (treesit-node-start epic))
+          (when (looking-at "- \\(?:\\[ \\]\\|\\[[0-9]+\\]\\) ")
+            (replace-match (format "- [%d] " n) t t)))))))
+
+(defun tf-ts-mode--move-tasks (ids heading state)
+  "Move the tasks with the ids IDS, in order, to the top of the section HEADING as STATE.
+STATE is a node type.  Returns the position of the first task."
+  (let (pos)
+    (dolist (id (reverse ids))
+      (let* ((task (tf-ts-mode--task-by-id id))
+             (from (tf-ts-mode--task-state task))
+             (cut (tf-ts-mode--cut-task task)))
+        (setq pos (tf-ts-mode--insert-task-at-top
+                   heading (tf-ts-mode--restate (car cut) (cdr cut) from state)))))
+    pos))
+
+(defun tf-ts-mode--advance-epic (epic subs)
+  "Move the epic node EPIC with its subtasks SUBS one stage on, or refuse.
+Backlog: all to todo.  Todo: all to done when every subtask is in todo; the epic alone to done
+when no subtask is open; otherwise refuse.  Done: all to cancelled.  Cancelled: all to backlog.
+Returns the position of the epic."
+  (let* ((stage (tf-ts-mode--task-stage epic))
+         (stages (mapcar #'tf-ts-mode--task-stage subs))
+         (ids (mapcar (lambda (task) (tf-ts-mode--property-value task 0)) (cons epic subs)))
+         (all (lambda (st) (seq-every-p (lambda (x) (eq x st)) stages))))
+    (when (memq nil ids) (user-error "A subtask of the epic has no id"))
+    (pcase stage
+      ('backlog (unless (funcall all 'backlog) (user-error "Not all subtasks are in backlog"))
+                (tf-ts-mode--move-tasks ids "# todo" "state_open"))
+      ('todo (cond ((funcall all 'todo) (tf-ts-mode--move-tasks ids "# done" "state_done"))
+                   ((seq-some (lambda (x) (memq x '(todo backlog))) stages)
+                    (user-error "The epic has open subtasks: finish or move them first"))
+                   (t (tf-ts-mode--move-tasks (list (car ids)) "# done" "state_done"))))
+      ('done (unless (funcall all 'done) (user-error "Not all subtasks are done"))
+             (tf-ts-mode--move-tasks ids "# done" "state_cancelled"))
+      (_ (unless (funcall all 'cancelled) (user-error "Not all subtasks are cancelled"))
+         (tf-ts-mode--move-tasks ids "# backlog" "state_open")))))
+
 (defun tf-ts-mode-advance-task ()
   "Move the current task one stage on: backlog, todo, done, cancelled, and back to backlog.
-The task goes to the top of the next section, and its header changes to match."
+The task goes to the top of the next section, and its header changes to match.
+A task of an epic also updates the number of open subtasks in the epic's header.  An epic
+moves together with its subtasks, only when they are all in the same stage (backlog, done or
+cancelled), or all in todo; an epic of which no subtask is open moves alone to done; with some
+subtasks open and some not, nothing moves.  An epic is never closed by its last subtask."
   (interactive)
   (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
          (section (treesit-node-parent task))
-         (state (treesit-node-type
-                 (treesit-node-child (tf-ts-mode--child task "task_header") 0))))
+         (state (tf-ts-mode--task-state task))
+         (epic-id (tf-ts-mode--epic-id task))
+         (subs (and epic-id (tf-ts-mode--subtasks epic-id))))
     (unless (equal (treesit-node-type section) "task_section") (user-error "Not in a task"))
-    (let* ((next (tf-ts-mode--next-stage (tf-ts-mode--section-heading section) state))
-           pos)
+    (if (and epic-id (or subs (equal state "state_split")))
+        (let (pos)
+          (atomic-change-group
+            (setq pos (tf-ts-mode--advance-epic task subs))
+            (tf-ts-mode--sync-epic epic-id))
+          (goto-char pos))
+      (let* ((next (tf-ts-mode--next-stage (tf-ts-mode--section-heading section) state))
+             (links (delq nil (mapcar (lambda (tag)
+                                        (and (string-match "\\`e\\([0-9]+\\)\\'" tag)
+                                             (match-string 1 tag)))
+                                      (tf-ts-mode--task-tags task))))
+             pos)
+        (atomic-change-group
+          (let ((cut (tf-ts-mode--cut-task task)))
+            (setq pos (copy-marker (tf-ts-mode--insert-task-at-top
+                                    (car next)
+                                    (tf-ts-mode--restate (car cut) (cdr cut) state (cdr next))))))
+          (mapc #'tf-ts-mode--sync-epic links))
+        (goto-char pos)))))
+
+(defun tf-ts-mode--set-property (start rank value)
+  "Set the property of RANK of the task whose header starts at START to VALUE.
+The property line is added in its place if the task has none."
+  (let* ((layout (tf-ts-mode--header-layout start nil))
+         (line (cdr (assq rank (cdr layout)))))
+    (save-excursion
+      (if line
+          (progn (goto-char (+ 6 (car line)))
+                 (delete-region (point) (cadr line))
+                 (insert value))
+        (goto-char (tf-ts-mode--property-anchor layout rank))
+        (insert (format "\n    %c %s" (aref ".!;:" rank) value))))))
+
+(defun tf-ts-mode--wrap-title (title)
+  "TITLE as header text: wrapped at the column limit, continuation lines indented to 6."
+  (let ((words (split-string title "[ \t\n]+" t)) (lines nil) (line "- [ ]"))
+    (dolist (w words)
+      (if (> (+ (length line) 1 (length w)) tf-ts-mode-column-limit)
+          (progn (push line lines) (setq line (concat "      " w)))
+        (setq line (concat line " " w))))
+    (mapconcat #'identity (nreverse (cons line lines)) "\n")))
+
+(defun tf-ts-mode--read-subtask-titles ()
+  "Ask for subtask titles one by one until an empty answer."
+  (let (titles title)
+    (while (not (string-empty-p
+                 (setq title (string-trim
+                              (read-string (format "Subtask %d title (empty to finish): "
+                                                   (1+ (length titles))))))))
+      (push title titles))
+    (nreverse titles)))
+
+(defun tf-ts-mode-split-epic (titles)
+  "Split the current task into subtasks with the titles TITLES, a list of strings.
+Interactively the titles are asked for one by one; an empty one ends the list.  The task
+becomes an epic: its type is `e', it gets an id if it has none, and its header reads
+`- [<n>]', n the number of its open subtasks.  The subtasks go right below it, tagged `e<id>'
+and with the epic's tags.  Any open task can be split; a split epic gets more subtasks."
+  (interactive (list (tf-ts-mode--read-subtask-titles)))
+  (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task"))))
+    (unless titles (user-error "No subtasks"))
+    (when (seq-some (lambda (title) (string-search "```" title)) titles)
+      (user-error "A title cannot contain triple backticks"))
+    (unless (member (tf-ts-mode--task-state task) '("state_open" "state_split"))
+      (user-error "Only an open task can be split"))
+    (let ((start (copy-marker (treesit-node-start task)))
+          id tags)
       (atomic-change-group
-        (let ((cut (tf-ts-mode--cut-task task)))
-          (setq pos (tf-ts-mode--insert-task-at-top
-                     (car next)
-                     (tf-ts-mode--restate (car cut) (cdr cut) state (cdr next))))))
-      (goto-char pos))))
+        (setq id (or (tf-ts-mode--property-value task 0)
+                     (let ((new (number-to-string (tf-ts-mode--new-id))))
+                       (tf-ts-mode--set-property start 0 new)
+                       new)))
+        (tf-ts-mode--set-property start 2 "e")
+        (setq task (tf-ts-mode--task-by-id id)
+              tags (string-join (cons (concat "e" id) (tf-ts-mode--task-tags task)) ", "))
+        (goto-char (tf-ts-mode--last-line-end task))
+        (dolist (title titles)
+          (insert "\n\n" tf-ts-mode--separator "\n\n" (tf-ts-mode--wrap-title title)
+                  (format "\n    . %d\n    : %s" (tf-ts-mode--new-id) tags)))
+        (tf-ts-mode--sync-epic id))
+      (goto-char start))))
 
 ;;;; Updating tf
 
@@ -823,7 +1001,7 @@ Only lines of the header region may lie in between: no blank lines, fields or he
     (beginning-of-line)
     (catch 'found
       (while (zerop (forward-line -1))
-        (cond ((looking-at "^- \\(\\[[ x]\\] \\|~~\\[ \\] \\)") (throw 'found (point)))
+        (cond ((looking-at tf-ts-mode--header-regexp) (throw 'found (point)))
               ((looking-at tf-ts-mode--header-end-regexp) (throw 'found nil)))))))
 
 (defun tf-ts-mode--header-layout (start skip)
@@ -940,8 +1118,7 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   "C-c C-l" #'tf-ts-mode-priority-down
   "C-c C-d" #'tf-ts-mode-add-description
   "C-c C-m" #'tf-ts-mode-add-comment
-  "C-c C-s" #'tf-ts-mode-separator-below
-  "C-c C-a" #'tf-ts-mode-separator-above
+  "C-c C-s" #'tf-ts-mode-split-epic
   "C-c C-v" #'tf-ts-mode-advance-task
   "C-c C-u" #'tf-ts-mode-update
   "C-c C-i" #'tf-ts-mode-show-id-date
