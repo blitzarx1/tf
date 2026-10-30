@@ -447,11 +447,11 @@
     },
     "tag": {
       "type": "PATTERN",
-      "value": "[^,\\s]+"
+      "value": "\\S+"
     },
     "_tag_separator": {
       "type": "PATTERN",
-      "value": ",? +"
+      "value": " +"
     },
     "field": {
       "type": "SEQ",

@@ -18,7 +18,7 @@
       under the title text
     . 1792321201
     ! 100
-    : tag1, tag2
+    : tag1 tag2
 
   D : Description text,
       wrapped under the text.
@@ -389,7 +389,7 @@
     (should (string-match-p "\\`# todo\n\n- \\[2\\] fix it\n    \\. 1\n    ; e\n    : ui\n\n  D : why\n" out))
     (should (string-match-p
              (concat "  D : why\n\n" tf-ts-mode-test--sep "\n\n- \\[ \\] first part\n    \\. [0-9]+\n"
-                     "    : e1, ui\n\n" tf-ts-mode-test--sep "\n\n- \\[ \\] second part\n")
+                     "    : e1 ui\n\n" tf-ts-mode-test--sep "\n\n- \\[ \\] second part\n")
              out))))
 
 (ert-deftest tf-ts-mode-test-split-creates-id-and-type ()

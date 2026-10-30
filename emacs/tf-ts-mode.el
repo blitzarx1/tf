@@ -793,7 +793,7 @@ Returns the position of TEXT."
 
 (defun tf-ts-mode--task-tags (task)
   "The tags of TASK, a list of strings."
-  (split-string (or (tf-ts-mode--property-value task 3) "") "[, ]+" t))
+  (split-string (or (tf-ts-mode--property-value task 3) "") " +" t))
 
 (defun tf-ts-mode--epic-id (task)
   "Id of TASK if its type is `e' and it has an id, else nil."
@@ -948,7 +948,7 @@ and with the epic's tags.  Any open task can be split; a split epic gets more su
                        new)))
         (tf-ts-mode--set-property start 2 "e")
         (setq task (tf-ts-mode--task-by-id id)
-              tags (string-join (cons (concat "e" id) (tf-ts-mode--task-tags task)) ", "))
+              tags (string-join (cons (concat "e" id) (tf-ts-mode--task-tags task)) " "))
         (goto-char (tf-ts-mode--last-line-end task))
         (dolist (title titles)
           (insert "\n\n" tf-ts-mode--separator "\n\n" (tf-ts-mode--wrap-title title)
