@@ -184,10 +184,11 @@ Built-in commands:
          it. After approval:
 
          * the epic stays in `# todo` as `- [<n>] <title>` with its `D : `, an id and `; e`,
-           `<n>` being the number of new tasks; if it has no id, create one (a unix timestamp,
-           unique in the file);
-         * put the new tasks in `# todo` right below it, each tagged `e<epic id>` plus the
-           epic's own tags; add an `A : ` to the epic listing them.
+           `<n>` being the number of new tasks; if it has no id, create one as `## task header`
+           says;
+         * put the new tasks in `# todo` right below it, each with its own id created as
+           `## task header` says, tagged `e<epic id>` plus the epic's own tags; add an `A : ` to
+           the epic listing them.
 
          The owner can also split any task by hand (`C-c C-s` in the editor), which turns it
          into an epic of the same shape.
