@@ -122,10 +122,21 @@ A command is typed by the owner and run by the agent. Rules for every command:
    are; reflow only to stay within the format. Never cancel an item (`~~...~~`) yourself.
 3. Plan in plan mode when your agent has one (Claude Code: `EnterPlanMode`).
 4. If the owner types `tf <something>` that isn't a built-in, say so and list the built-ins.
+5. History flag `-h <n>`: with `tf` or `tf <k>` (`tf -h 3`, `tf 2 -h 3`), read the `<n>` newest
+   items of `# done` in full (header, `D : `, `C : `, `A : `) as context before planning. Default
+   0: no done items are read. `tf migrate` doesn't take it.
+6. Session follow-ups: a session belongs to the task it worked. Any later owner message in the
+   session is worked as a follow-up and its outcome is appended as a new `A : Follow-up: ...`
+   field on that task (it stays in `# done`; no new task, never `C : `). After `tf <k>`, the
+   follow-up goes to the item it concerns; ask if it is unclear.
+7. One `tf` per session: if a `tf` command (any form but `tf migrate`) already ran in this
+   session, decline a new one. Warn the owner that this breaks the session-per-task flow, name
+   the task of the session, and ask them to start a fresh session (`/clear` or a new one) and
+   type `tf` there. Don't work the next item; you can't clear your own context.
 
 Built-in commands:
 
-- `tf`
+- `tf [-h <n>]`
 
   D : Work the first open item of `# todo`.
 
@@ -165,7 +176,7 @@ Built-in commands:
          `e<id>`, lower `<n>` in the header of the epic with that id by one; at `[0]` leave the
          epic open, it is closed as step 1 says.
 
-- `tf <n>`
+- `tf <n> [-h <k>]`
 
   D : Work the first `<n>` open items of `# todo` together (`tf` is `tf 1`). Pick them as step 1
       of `tf` does, counting open tasks, not epics: a split epic is asked about once, as there, and
