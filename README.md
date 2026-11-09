@@ -45,7 +45,7 @@ agree. Your old files stay as they are.
 |---|---|
 | `tf` | re-reads `.tf/tasks.tfmd` and works the first open `# todo` item: answers a question, plans and then implements a task or bug, or asks you questions and splits an epic into tasks. Then it moves the item to `# done` with a summary. |
 | `tf <n>` | works the first `<n>` open `# todo` items together: one plan covering all of them, one approval, then implements them in order and closes each. |
-| `tf -h <n>` | with `tf` or `tf <n>`: first reads the `<n>` newest `# done` items as context. One `tf` per session: later messages in it are follow-ups, recorded as `A :` on that task; a second `tf` is declined, start a fresh session. |
+| `tf -h <n>` | with `tf` or `tf <n>`: first reads the `<n>` newest `# done` items as context. One `tf` per session: later messages in it are follow-ups, recorded as readable `A :` notes on that task; a second `tf` is declined, start a fresh session (unless the first split an epic: its tasks can follow in the same session). |
 | `tf migrate <path>` | reads your old tracker (a file or a folder), shows what goes to `# todo`, `# backlog` and `# done`, and appends the tasks to `tasks.tfmd` once you agree. Open tasks it can't place go to `# backlog`. |
 
 Edit `tasks.tfmd` yourself whenever you like. Add new items to `# todo` or `# backlog`, move them
