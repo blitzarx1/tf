@@ -28,7 +28,7 @@ git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
 
 `install.sh`:
 - turns `.tf` into a plain folder by deleting `.tf/.git`;
-- links `.tf/skill` as the `tf` skill (`.claude/skills/tf`, `.agents/skills/tf`);
+- copies `.tf/skill` as the `tf` skill to `.claude/skills/tf` and `.agents/skills/tf`;
 - adds `@.tf/skill/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`;
 - deletes `README.md` and itself from `.tf`, leaving `tasks.tfmd`, `update.sh`, `VERSION` and `skill/`.
 
@@ -131,7 +131,7 @@ into place.
 | `tasks.tfmd` | Your tasks |
 | `skill/base.md` | The format, the task types and the built-in commands with their full definitions (tf's; replaced by updates) |
 | `skill/AGENTS.md` | Points the agent to `skill/base.md` and `tasks.tfmd` |
-| `skill/SKILL.md` | The `tf` skill, linked as `.claude/skills/tf` and `.agents/skills/tf` |
+| `skill/SKILL.md` | The `tf` skill, copied to `.claude/skills/tf` and `.agents/skills/tf` (refreshed by `update.sh`) |
 | `VERSION` | Installed tf version: the release tag, then the commit hash (written by install and update) |
-| `update.sh` | Updates `skill/`, `VERSION` and itself |
+| `update.sh` | Updates `skill/` (and its copies), `VERSION` and itself |
 | `install.sh` | Setup; deletes itself |

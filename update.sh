@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Updates tf in place. Run from the project root: .tf/update.sh
-# Replaces skill/ (AGENTS.md, SKILL.md, base.md), VERSION and this script with the latest versions.
+# Replaces skill/ (AGENTS.md, SKILL.md, base.md), VERSION and this script with the latest versions,
+# then refreshes the copies of skill/ in .claude/skills/tf and .agents/skills/tf.
 # Never touches tasks.tfmd: your tasks stay as they are.
 set -euo pipefail
 
@@ -45,6 +46,13 @@ for f in skill/base.md skill/AGENTS.md skill/SKILL.md VERSION update.sh; do
 	fi
 done
 chmod +x .tf/update.sh
+
+# Refresh the copies of the skill (an old symlink there is replaced by the copy).
+for dir in .claude/skills .agents/skills; do
+	mkdir -p "$dir"
+	rm -rf "$dir/tf"
+	cp -R .tf/skill "$dir/tf"
+done
 if [ "$old" = "$new" ]; then
 	echo "tf $new (already up to date)."
 else
