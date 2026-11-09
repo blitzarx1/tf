@@ -30,10 +30,12 @@ show_version() {
 [ -d .tf/.git ] && write_version .tf .tf/VERSION
 rm -rf .tf/.git
 
-# .tf/skill holds SKILL.md at its root, so that folder is the skill.
+# .tf/skill holds SKILL.md at its root, so that folder is the skill. It is copied (not linked) to
+# where the agents look for skills; an old symlink there is replaced by the copy.
 for dir in .claude/skills .agents/skills; do
 	mkdir -p "$dir"
-	ln -sfn ../../.tf/skill "$dir/tf"
+	rm -rf "$dir/tf"
+	cp -R .tf/skill "$dir/tf"
 done
 
 # add_line FILE LINE: appends LINE to FILE (created if missing) unless it is already there.
