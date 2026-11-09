@@ -128,11 +128,31 @@ A command is typed by the owner and run by the agent. Rules for every command:
 6. Session follow-ups: a session belongs to the task it worked. Any later owner message in the
    session is worked as a follow-up and its outcome is appended as a new `A : Follow-up: ...`
    field on that task (it stays in `# done`; no new task, never `C : `). After `tf <k>`, the
-   follow-up goes to the item it concerns; ask if it is unclear.
+   follow-up goes to the item it concerns; ask if it is unclear. Write it for a human reader:
+
+   * the first line is the outcome in one sentence; details follow in short paragraphs, a blank
+     line between them;
+   * names, paths and commands in single backticks; multi-line code or output in a fenced block;
+   * several changes or steps as a list or an enumeration, not a long run of prose.
+
+   ```
+     A : Follow-up: `update.sh` now prints a status per destination.
+
+         Statuses:
+
+         * `created`
+         * `updated`
+         * `unchanged`, the copy is skipped
+
+         Committed in 3352895.
+   ```
 7. One `tf` per session: if a `tf` command (any form but `tf migrate`) already ran in this
    session, decline a new one. Warn the owner that this breaks the session-per-task flow, name
    the task of the session, and ask them to start a fresh session (`/clear` or a new one) and
-   type `tf` there. Don't work the next item; you can't clear your own context.
+   type `tf` there. Don't work the next item; you can't clear your own context. Exception: if
+   the session's last `tf` split an epic or worked a task tagged `e<id>`, a new `tf` is allowed
+   when the item it picks is that epic or another task of it; any other item is declined as
+   above.
 
 Built-in commands:
 
