@@ -50,8 +50,19 @@ chmod +x .tf/update.sh
 # Refresh the copies of the skill (an old symlink there is replaced by the copy).
 for dir in .claude/skills .agents/skills; do
 	mkdir -p "$dir"
+	if [ -L "$dir/tf" ]; then
+		status="symlink replaced by a copy"
+	elif [ ! -e "$dir/tf" ]; then
+		status="created"
+	elif diff -rq .tf/skill "$dir/tf" > /dev/null; then
+		echo "  $dir/tf: unchanged"
+		continue
+	else
+		status="updated"
+	fi
 	rm -rf "$dir/tf"
 	cp -R .tf/skill "$dir/tf"
+	echo "  $dir/tf: $status"
 done
 if [ "$old" = "$new" ]; then
 	echo "tf $new (already up to date)."
