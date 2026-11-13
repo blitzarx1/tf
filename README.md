@@ -127,8 +127,9 @@ blocks are highlighted monospace on a subtle background. A code line less than 4
 than its fence, or a closing fence off the opening one's column, is marked red, and `TAB` moves it
 into place.
 
-The lines of a `C :` field (yours) get a pastel yellow background and those of an `A :` field
-(the agent's) a pastel blue one, up to column 100 (`tf-ts-comment-face`, `tf-ts-agent-face`).
+The label of a `C :` field (yours), from the line start to the `:`, gets a pastel yellow
+background, that of an `A :` field (the agent's) a pastel blue one and that of a `J :` field (job
+instructions) a pastel green one (`tf-ts-comment-face`, `tf-ts-agent-face`, `tf-ts-job-face`).
 
 ## Files
 
