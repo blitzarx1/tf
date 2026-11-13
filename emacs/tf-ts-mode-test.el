@@ -675,7 +675,7 @@
     (should (tf-ts-mode-test--has-face 'tf-ts-code-face
                                        (tf-ts-mode-test--face-at text "      ```")))))
 
-(ert-deftest tf-ts-mode-test-bug-type-is-red ()
+(ert-deftest tf-ts-mode-test-bug-type-is-highlighted ()
   (let ((text "# todo\n\n- [ ] a\n    ; b\n\n- [ ] b\n    ; q\n\n- [ ] c\n    ; e\n"))
     (with-temp-buffer
       (insert text)

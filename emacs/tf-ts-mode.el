@@ -103,8 +103,10 @@ It keeps the buffer's font, so a character fills one grid cell and lines end at 
   "Cells of the code band of a folded block; the column ruler is drawn in the next one."
   (1+ tf-ts-mode-column-limit))
 
-(defface tf-ts-bug-face '((t :inherit error :weight bold))
-  "Face for the bug task type, the letter `b'.")
+(defface tf-ts-bug-face
+  '((((background light)) :background "#ffd9d9")
+    (((background dark)) :background "#4a2323"))
+  "Face for the bug task type, the letter `b': a pastel red background.")
 (defface tf-ts-cancelled-face '((t :inherit shadow :strike-through t))
   "Face for titles of cancelled tasks.")
 
