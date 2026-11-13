@@ -27,6 +27,8 @@
 ;;                         `# todo', else at the top of the section
 ;;   d                     add a `D :' field (or a new paragraph in the existing one)
 ;;   m                     add a `C :' field (comment)
+;;   j                     add a `J :' field (job instructions) with `Parameters:' and `Steps:'
+;;                         lists, or go to the existing one
 ;;   s                     split the task into subtasks (asks for titles): it becomes an epic
 ;;                         `- [<n>]', n the number of its open subtasks
 ;;   v                     move the task one stage on: backlog, todo, done, cancelled, backlog
@@ -535,12 +537,12 @@ Stops at the first line that is not part of a list in a field."
       (cond ((null pnode) 0)
             ((and gap (or in-field in-header)) 6)
             (t (tf-ts-mode--text-column pnode))))
-     ((string-match-p "\\`# \\(todo\\|backlog\\|done\\|tags\\|commands\\) *\\'" text) 0)
+     ((string-match-p "\\`# \\(todo\\|backlog\\|done\\|jobs\\|tags\\|commands\\) *\\'" text) 0)
      ((string-match-p (concat "\\`" tf-ts-mode--separator "\\'") text) 0)
      ((and (string-match-p "\\`- \\(\\[[ x0-9]+\\]\\|~~\\[ \\]\\) " text)
            (or (not in-field) (zerop (current-indentation))))
       0)
-     ((string-match-p "\\`[DCA] :\\( \\|\\'\\)" text) 2)
+     ((string-match-p "\\`[DCAJ] :\\( \\|\\'\\)" text) 2)
      ((and in-header (string-match-p "\\`[.!;:] " text)) 4)
      ((string-match-p "\\``\\{3\\}" text) (if in-field 6 0))
      ((string-match-p "\\`\\([*-]\\|[0-9]+\\.\\) " text)
@@ -730,6 +732,26 @@ A task without a priority line gets one, from the default 50."
     (goto-char (tf-ts-mode--last-line-end task))
     (insert "\n\n  C : ")))
 
+(defconst tf-ts-mode--job-template
+  "  J : \n\n      Parameters:\n\n      * \n\n      Steps:\n\n      1. "
+  "Template of the `J :' field of a job: a summary line, `Parameters:' and `Steps:'.")
+
+(defun tf-ts-mode-add-job-instructions ()
+  "Add a `J :' field from the job template to the current task, or go to its existing one.
+The field has a summary line, a `Parameters:' list and a `Steps:' list; point is left on the
+summary line."
+  (interactive)
+  (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
+         (existing (car (tf-ts-mode--fields task "J"))))
+    (if existing
+        (progn (goto-char (treesit-node-start existing))
+               (end-of-line))
+      (goto-char (tf-ts-mode--last-line-end task))
+      (insert "\n\n")
+      (let ((start (point)))
+        (insert tf-ts-mode--job-template)
+        (goto-char (+ start (length "  J : ")))))))
+
 (defun tf-ts-mode-separator-below ()
   "Add a separator below the current task."
   (interactive)
@@ -756,10 +778,14 @@ A task without a priority line gets one, from the default 50."
   "Text of the heading node of SECTION, a task_section node."
   (treesit-node-text (tf-ts-mode--child section "heading") t))
 
-(defun tf-ts-mode--next-stage (heading state)
+(defun tf-ts-mode--next-stage (heading state &optional type)
   "The stage after the one of a task in section HEADING with STATE, as (HEADING . STATE).
-The loop is backlog, todo, done, cancelled (kept in done), back to backlog."
+The loop is backlog, todo, done, cancelled (kept in done), back to backlog.  A job (TYPE `j')
+leaves todo for `# jobs' as `- [1]' and stays there."
   (cond
+   ((equal heading "# jobs") (user-error "Jobs stay in # jobs"))
+   ((and (equal heading "# todo") (equal type "j") (equal state "state_open"))
+    '("# jobs" . "state_job"))
    ((equal state "state_cancelled") '("# backlog" . "state_open"))
    ((equal state "state_done") '("# done" . "state_cancelled"))
    ((equal heading "# backlog") '("# todo" . "state_open"))
@@ -814,6 +840,7 @@ TITLE-END is the offset where its last title line ends.  A split epic leaves its
     (concat (pcase to
               ("state_open" "- [ ] ")
               ("state_done" "- [x] ")
+              ("state_job" "- [1] ")
               (_ "- ~~[ ] "))
             (let ((title (substring text prefix title-end)))
               (if (equal from "state_cancelled") (string-remove-suffix "~~" title) title))
@@ -860,10 +887,11 @@ Returns the position of TEXT."
   (treesit-node-type (treesit-node-child (tf-ts-mode--child task "task_header") 0)))
 
 (defun tf-ts-mode--task-stage (task)
-  "Stage of TASK: `backlog', `todo', `done' or `cancelled'."
+  "Stage of TASK: `backlog', `todo', `done', `cancelled' or `jobs'."
   (let ((state (tf-ts-mode--task-state task))
         (heading (tf-ts-mode--section-heading (treesit-node-parent task))))
-    (cond ((equal state "state_cancelled") 'cancelled)
+    (cond ((equal heading "# jobs") 'jobs)
+          ((equal state "state_cancelled") 'cancelled)
           ((equal state "state_done") 'done)
           ((equal heading "# todo") 'todo)
           ((equal heading "# backlog") 'backlog)
@@ -958,7 +986,8 @@ subtasks open and some not, nothing moves.  An epic is never closed by its last 
             (setq pos (tf-ts-mode--advance-epic task subs))
             (tf-ts-mode--sync-epic epic-id))
           (goto-char pos))
-      (let* ((next (tf-ts-mode--next-stage (tf-ts-mode--section-heading section) state))
+      (let* ((next (tf-ts-mode--next-stage (tf-ts-mode--section-heading section) state
+                                           (tf-ts-mode--property-value task 2)))
              (links (delq nil (mapcar (lambda (tag)
                                         (and (string-match "\\`e\\([0-9]+\\)\\'" tag)
                                              (match-string 1 tag)))
@@ -1065,7 +1094,7 @@ and with the epic's tags.  Any open task can be split; a split epic gets more su
   "A property line of a task header: id, priority, type or tags.")
 
 (defconst tf-ts-mode--header-end-regexp
-  (concat "^\\(?:[ \t]*$\\|  [DCA] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
+  (concat "^\\(?:[ \t]*$\\|  [DCAJ] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
   "A line that ends the header region of a task: blank, a field, a heading, a task or a separator.")
 
 (defun tf-ts-mode--property-rank (char)
@@ -1196,6 +1225,7 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   "C-c C-l" #'tf-ts-mode-priority-down
   "C-c C-d" #'tf-ts-mode-add-description
   "C-c C-m" #'tf-ts-mode-add-comment
+  "C-c C-j" #'tf-ts-mode-add-job-instructions
   "C-c C-s" #'tf-ts-mode-split-epic
   "C-c C-v" #'tf-ts-mode-advance-task
   "C-c C-u" #'tf-ts-mode-update

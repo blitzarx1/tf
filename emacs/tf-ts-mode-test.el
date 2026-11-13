@@ -272,6 +272,23 @@
                    (concat "# todo\n\n- [ ] one\n\n  D : text\n\n  C : note\n\n"
                            tf-ts-mode--separator "\n")))))
 
+(ert-deftest tf-ts-mode-test-add-job-instructions ()
+  (tf-ts-mode-test--with-buffer
+      (concat "# todo\n\n- [ ] one\n    ; j\n\n  D : text\n\n" tf-ts-mode--separator "\n")
+    (goto-char (point-min))
+    (tf-ts-mode-next-task)
+    (tf-ts-mode-add-job-instructions)
+    (insert "summary")
+    (should (equal (buffer-string)
+                   (concat "# todo\n\n- [ ] one\n    ; j\n\n  D : text\n\n  J : summary\n\n"
+                           "      Parameters:\n\n      * \n\n      Steps:\n\n      1. \n\n"
+                           tf-ts-mode--separator "\n")))
+    ;; a second call goes to the existing field instead of adding another
+    (goto-char (point-min))
+    (tf-ts-mode-next-task)
+    (tf-ts-mode-add-job-instructions)
+    (should (looking-back "J : summary" (line-beginning-position)))))
+
 (ert-deftest tf-ts-mode-test-separators ()
   (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] one\n"
     (goto-char (point-min))
@@ -485,6 +502,28 @@
     (tf-ts-mode)
     (goto-char (point-max))
     (should-error (tf-ts-mode-advance-task) :type 'user-error)))
+
+(ert-deftest tf-ts-mode-test-advance-job-to-jobs ()
+  (should (equal (tf-ts-mode-test--advance
+                  (concat "# todo\n\n- [ ] one\n    ; j\n\n  J : run it\n\n# done\n\n# jobs\n\n"
+                          "- [2] old\n    ; j\n"))
+                 (concat "# todo\n\n# done\n\n# jobs\n\n- [1] one\n    ; j\n\n  J : run it\n\n"
+                         tf-ts-mode-test--sep "\n\n- [2] old\n    ; j\n"))))
+
+(ert-deftest tf-ts-mode-test-advance-job-in-jobs-refused ()
+  (with-temp-buffer
+    (insert "# todo\n\n# jobs\n\n- [2] one\n    ; j\n")
+    (tf-ts-mode)
+    (goto-char (point-max))
+    (search-backward "] one")
+    (should-error (tf-ts-mode-advance-task) :type 'user-error)))
+
+(ert-deftest tf-ts-mode-test-job-field-indents ()
+  (with-temp-buffer
+    (insert "# jobs\n\n- [1] one\n    ; j\n\nJ : run it")
+    (tf-ts-mode)
+    (indent-region (point-min) (point-max))
+    (should (equal (buffer-string) "# jobs\n\n- [1] one\n    ; j\n\n  J : run it"))))
 
 ;;;; update
 

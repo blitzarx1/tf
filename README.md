@@ -43,9 +43,10 @@ agree. Your old files stay as they are.
 
 | You type | The agent |
 |---|---|
-| `tf` | re-reads `.tf/tasks.tfmd` and works the first open `# todo` item: answers a question, plans and then implements a task or bug, or asks you questions and splits an epic into tasks. Then it asks whether to close, close and commit, or close, commit and push, and moves the item to `# done` with a summary. |
+| `tf` | re-reads `.tf/tasks.tfmd` and works the first open `# todo` item: answers a question, plans and then implements a task or bug, or asks you questions and splits an epic into tasks. Then it asks whether to close, close and commit, or close, commit and push, and moves the item to `# done` with a summary (a job, type `j`, goes to `# jobs` instead and stays there). |
 | `tf <n>` | works the first `<n>` open `# todo` items together: one plan covering all of them, one approval, then implements them in order and closes each. |
-| `tf -h <n>` | with `tf` or `tf <n>`: first reads the `<n>` newest `# done` items as context. One `tf` per session: later messages in it are follow-ups, recorded as readable `A :` notes on that task; a second `tf` is declined, start a fresh session (unless the first split an epic: its tasks can follow in the same session). |
+| `tf -t <ref>` | works the `# todo` item with that id, or the one your words describe, instead of the first. One `tf` per session: later messages in it are follow-ups, recorded as readable `A :` notes on that task; a second `tf` is declined, start a fresh session (unless the first split an epic: its tasks can follow in the same session). |
+| `tf -j <ref>` | runs the job from `# jobs` with that id or description, following its `J :` instructions (give parameter values in words after the job, or it asks for them), then (after your approval) raises its run count `[<n>]` and records the refined instructions. |
 | `tf migrate <path>` | reads your old tracker (a file or a folder), shows what goes to `# todo`, `# backlog` and `# done`, and appends the tasks to `tasks.tfmd` once you agree. Open tasks it can't place go to `# backlog`. |
 
 Edit `tasks.tfmd` yourself whenever you like. Add new items to `# todo` or `# backlog`, move them
@@ -109,6 +110,7 @@ Keys, all under `C-c C-`:
 | `t` | new task below the current one, with an id only (priority 50 and type `t` are the defaults) |
 | `h` / `l` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
+| `j` | add a `J : ` job instructions field with `Parameters:` and `Steps:` lists, or go to the existing one; a job in `# todo` moves to `# jobs` with `v` |
 | `s` | split the task into subtasks (asks for titles until an empty one); it becomes an epic `- [<n>]` |
 | `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog. An epic moves with its subtasks when they share a stage; with some open and some not, nothing moves; the epic's `<n>` follows its subtasks |
 | `C-c SPC` / `C-c S-SPC` | separator below / above the task |

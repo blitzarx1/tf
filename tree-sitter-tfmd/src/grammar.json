@@ -82,7 +82,7 @@
         "value": 2,
         "content": {
           "type": "PATTERN",
-          "value": "# (todo|backlog|done)"
+          "value": "# (todo|backlog|done|jobs)"
         }
       }
     },
@@ -517,7 +517,7 @@
     },
     "field_label": {
       "type": "PATTERN",
-      "value": "  [DCA] : ?"
+      "value": "  [DCAJ] : ?"
     },
     "field_text": {
       "type": "SYMBOL",

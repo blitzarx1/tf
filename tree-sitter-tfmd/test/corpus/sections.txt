@@ -342,3 +342,33 @@ property lines out of order
       (stray_property
         (stray_marker)
         (text)))))
+
+================================================================================:sep
+jobs section with a run count and a job field
+================================================================================:sep
+# jobs
+
+- [3] release notes
+    . 1792321201
+    ; j
+
+  J : Collect the commits and write the notes.
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_split)
+        (title))
+      (id
+        (id_marker)
+        (id_value))
+      (type
+        (type_marker)
+        (type_value))
+      (field
+        (field_label)
+        (field_text)))))

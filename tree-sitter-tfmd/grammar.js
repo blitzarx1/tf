@@ -24,14 +24,14 @@ export default grammar({
 
     _blank: $ => "\n",
 
-    // # todo, # backlog, # done
+    // # todo, # backlog, # done, # jobs
     task_section: $ => seq(
       alias($._task_heading, $.heading), "\n",
       repeat(choice($._blank, $._invalid_line)),
       repeat(choice($.separator_line, $.task)),
     ),
 
-    _task_heading: $ => token(prec(2, /# (todo|backlog|done)/)),
+    _task_heading: $ => token(prec(2, /# (todo|backlog|done|jobs)/)),
 
     // Tasks are divided by 32 dashes; the blank lines after it belong to it.
     separator_line: $ => seq($.separator, "\n", repeat(choice($._blank, $._invalid_line))),
@@ -83,7 +83,7 @@ export default grammar({
       repeat(choice($._blank, $.list_item, $.text_line, $.code_block, $._invalid_line)),
     ),
     _field_head: $ => seq($.field_label, optional($.field_text), "\n"),
-    field_label: $ => /  [DCA] : ?/,
+    field_label: $ => /  [DCAJ] : ?/,
     field_text: $ => $._inline,
 
     // Running text: plain chunks and single-line `inline code`. A lone or unclosed backtick is plain.
