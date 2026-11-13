@@ -216,9 +216,10 @@ Built-in commands:
 
          Only after the answer (a number or the option's words), mark the item `[x]`, add a short
          `A : ` summary (commit hash if any, and which option the owner chose) and move it to the
-         top of `# done`, then commit and push as chosen. If the item is tagged `e<id>`, lower `<n>` in
-         the header of the epic with that id by one; at `[0]` leave the epic open, it is closed as step 1 says. Later
-         follow-ups (rule 6) keep the last choice unless the owner says otherwise.
+         top of `# done`, then commit and push as chosen. If the item is tagged `e<id>`, lower
+         `<n>` in the header of the epic with that id by one; at `[0]` leave the epic open, it is
+         closed as step 1 says. Later follow-ups (rule 6) keep the last choice unless the owner
+         says otherwise.
 
 - `tf <n> [-h <k>]`
 
