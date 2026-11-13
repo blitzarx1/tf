@@ -43,6 +43,8 @@
 ;; and fenced blocks get a background.  A fenced block's band ends at column 100 and the text past
 ;; it is hidden (shown as `...') until point enters the block, which shows whole with its
 ;; band running to the window edge; see `tf-ts-mode-hide-overflow'.
+;; The lines of a `C :' field (the owner's) have a pastel yellow background, those of an `A :'
+;; field (the agent's) a pastel blue one, both up to column 100; code keeps its own grey.
 ;; A code line indented less than 4 columns past its fence, or a closing fence off its opener's
 ;; column, is marked as a warning, and TAB moves it into place.  Triple backticks in a task title
 ;; are highlighted as a warning.
@@ -79,6 +81,14 @@
     (((background dark)) :background "grey22"))
   "Face for inline code and fenced blocks: a subtle background.
 It keeps the buffer's font, so a character fills one grid cell and lines end at the column ruler.")
+(defface tf-ts-comment-face
+  '((((background light)) :background "#fff8d6")
+    (((background dark)) :background "#3a3722"))
+  "Face for the lines of the owner's `C :' fields: a pastel yellow background.")
+(defface tf-ts-agent-face
+  '((((background light)) :background "#e3f0ff")
+    (((background dark)) :background "#22303f"))
+  "Face for the lines of the agent's `A :' fields: a pastel blue background.")
 (defface tf-ts-code-band-face
   '((t :inherit tf-ts-code-face :extend t))
   "Face for the fenced block at point: its band runs to the right edge of the window.")
@@ -184,6 +194,70 @@ so the indent carries the background too; `tf-ts-mode--update-folds' ends or ext
     (goto-char limit)
     nil))
 
+;; Highlight of `C :' and `A :' fields
+
+(defun tf-ts-mode--field-band (node)
+  "Return (FACE FIRST LAST) for the field NODE if it is a `C :' or `A :' field, else nil.
+FIRST and LAST are the beginning of the label's line and the end of the last non-blank line."
+  (let* ((label (tf-ts-mode--child node "field_label"))
+         (face (and label
+                    (pcase (aref (string-trim (treesit-node-text label)) 0)
+                      (?C 'tf-ts-comment-face)
+                      (?A 'tf-ts-agent-face)))))
+    (when face
+      (save-excursion
+        (goto-char (treesit-node-start node))
+        (let ((first (line-beginning-position)))
+          ;; the node swallows the blank lines after it, and may end on the next line's start
+          (goto-char (max first (1- (treesit-node-end node))))
+          (beginning-of-line)
+          (while (and (> (point) first) (looking-at-p "[ ]*$"))
+            (forward-line -1))
+          (list face first (line-end-position)))))))
+
+(defun tf-ts-mode--fontify-fields (limit)
+  "Paint the lines of every `C :' and `A :' field up to LIMIT with their background.
+The faces are appended, so fenced blocks and inline code keep their own background."
+  (let ((beg (point)))
+    (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd)
+                                         '((field) @f) beg limit t))
+      (pcase (tf-ts-mode--field-band node)
+        (`(,face ,first ,last)
+         (save-excursion
+           (goto-char first)
+           (while (<= (point) last)
+             (add-face-text-property (line-beginning-position) (line-end-position) face t)
+             (forward-line 1))))))
+    (goto-char limit)
+    nil))
+
+(defun tf-ts-mode--in-code-block-p (pos)
+  "Non-nil if the line of POS lies in a fenced block."
+  (save-excursion
+    (goto-char pos)
+    (back-to-indentation)
+    (let ((node (treesit-node-at (point) 'tfmd)))
+      (while (and node (not (equal (treesit-node-type node) "code_block")))
+        (setq node (treesit-node-parent node)))
+      (and node t))))
+
+(defun tf-ts-mode--pad-fields ()
+  "Pad each short line of the `C :' and `A :' fields up to the band width, as an overlay."
+  (let ((width (tf-ts-mode--band-width)))
+    (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd) '((field) @f) nil nil t))
+      (pcase (tf-ts-mode--field-band node)
+        (`(,face ,first ,last)
+         (save-excursion
+           (goto-char first)
+           (while (<= (point) last)
+             (let ((eol (line-end-position)))
+               (when (and (< (current-column) width) (progn (goto-char eol) (< (current-column) width))
+                          (not (tf-ts-mode--in-code-block-p eol)))
+                 (tf-ts-mode--overlay
+                  eol eol 'after-string
+                  (propertize " " 'face face 'display `(space :align-to ,width)))))
+             (forward-line 1))))))))
+
 (defun tf-ts-mode--fontify-code-indent (limit)
   "Warn about misindented lines of fenced blocks up to LIMIT.
 A code line is at least 4 columns deeper than the opening fence, the closing fence is at its
@@ -236,6 +310,7 @@ column."
   "Font-lock keywords for the code band and what the format forbids.
 The band comes first so the overflow rule can see it: text past the limit, trailing space, tabs."
   `((tf-ts-mode--fontify-code-blocks)
+    (tf-ts-mode--fontify-fields)
     (tf-ts-mode--fontify-code-indent)
     (tf-ts-mode--fontify-title-fences)
     (tf-ts-mode--fontify-overflow 1 'tf-ts-overflow-face t)
@@ -283,6 +358,7 @@ the ruler.  The block holding point is shown whole, its band running to the wind
   (with-current-buffer (or buffer (current-buffer))
     (tf-ts-mode--clear-folds)
     (when (treesit-ready-p 'tfmd t)
+      (tf-ts-mode--pad-fields)
       (save-excursion
         (let ((pos (point)))
           (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd)
