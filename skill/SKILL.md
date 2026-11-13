@@ -8,3 +8,5 @@ description: Work the project's task file .tf/tasks.tfmd. Use when the owner typ
 Read `.tf/skill/base.md` and `.tf/tasks.tfmd` from disk before acting. Find the command the owner
 typed in `## commands` of `base.md` (with their full definitions) and do what its definition
 says.
+
+Plans are made in plan mode (rule 3 of `base.md`), also in auto mode.
