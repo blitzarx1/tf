@@ -207,17 +207,17 @@ Built-in commands:
          The owner can also split any task by hand (`C-c C-s` in the editor), which turns it
          into an epic of the same shape.
       5. When the work is finished and verified, do not touch `tasks.tfmd` yet: the owner may be
-         writing in it. Report in chat and offer the numbered options below, so the owner answers with
-         a number:
+         writing in it. Report in chat and offer the numbered options below, so the owner answers
+         with a number:
 
          1. close the task;
          2. close and commit;
          3. close, commit and push.
 
-         Only after the answer (a number or the option's words), mark the item `[x]`, add a short `A : ` summary (commit hash if
-         any, and which option the owner chose) and move it to the top of `# done`, then commit
-         and push as chosen. If the item is tagged `e<id>`, lower `<n>` in the header of the epic
-         with that id by one; at `[0]` leave the epic open, it is closed as step 1 says. Later
+         Only after the answer (a number or the option's words), mark the item `[x]`, add a short
+         `A : ` summary (commit hash if any, and which option the owner chose) and move it to the
+         top of `# done`, then commit and push as chosen. If the item is tagged `e<id>`, lower `<n>` in
+         the header of the epic with that id by one; at `[0]` leave the epic open, it is closed as step 1 says. Later
          follow-ups (rule 6) keep the last choice unless the owner says otherwise.
 
 - `tf <n> [-h <k>]`
