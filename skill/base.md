@@ -195,7 +195,14 @@ Built-in commands:
          with its id exist, it is already split: its header must read `[<n>]`, fix `<n>` and
          go on as step 1 says. In plan mode, investigate first, then ask the owner about
          everything the split depends on (scope, approach choices, granularity) before writing
-         it. After approval of the split, and the owner's approval to write it (rule 2):
+         it. After approval of the split, ask for the approval to write it (rule 2) with the
+         numbered options of step 5, the word "close" replaced by "write the split":
+
+         1. write the split;
+         2. write the split and commit;
+         3. write the split, commit and push.
+
+         On the answer:
 
          * the epic stays in `# todo` as `- [<n>] <title>` with its `D : `, an id and `; e`,
            `<n>` being the number of new tasks; if it has no id, create one as `## task header`
