@@ -120,6 +120,10 @@ A command is typed by the owner and run by the agent. Rules for every command:
    stale.
 2. Touch only the items the command works on. Keep the owner's wording and the other items as they
    are; reflow only to stay within the format. Never cancel an item (`~~...~~`) yourself.
+   Edit `.tf/tasks.tfmd` only after the owner explicitly approves that edit, since the owner may
+   be writing in it: say what you are about to write and wait for the answer. An approved plan is
+   not that approval. In the session of a task, the option chosen in step 5 of `tf` covers the
+   follow-ups on it.
 3. Plan in plan mode when your agent has one (Claude Code: `EnterPlanMode`).
 4. If the owner types `tf <something>` that isn't a built-in, say so and list the built-ins.
 5. History flag `-h <n>`: with `tf` or `tf <k>` (`tf -h 3`, `tf 2 -h 3`), read the `<n>` newest
@@ -181,8 +185,8 @@ Built-in commands:
          * if `<n>` is 0, ask whether to close it (`[x]`, an `A : ` summary, top of `# done`);
          * otherwise do nothing for it and take the next open item.
       2. Question (type `q`): investigate and answer in chat, without changing the project. Then
-         record the answer without asking: add an `A : ` field with the short answer, mark the
-         item `[x]` and move it to the top of `# done`.
+         ask (rule 2) to record the answer; on approval add an `A : ` field with the short
+         answer, mark the item `[x]` and move it to the top of `# done`.
       3. Task or bug (type `t` or `b`; find the root cause first): its `D : ` and `C : ` fields
          are the spec (`A : ` holds earlier agent notes). Plan the implementation and ask about
          anything they leave open; implement only after the owner approves the plan.
@@ -191,7 +195,7 @@ Built-in commands:
          with its id exist, it is already split: its header must read `[<n>]`, fix `<n>` and
          go on as step 1 says. In plan mode, investigate first, then ask the owner about
          everything the split depends on (scope, approach choices, granularity) before writing
-         it. After approval:
+         it. After approval of the split, and the owner's approval to write it (rule 2):
 
          * the epic stays in `# todo` as `- [<n>] <title>` with its `D : `, an id and `; e`,
            `<n>` being the number of new tasks; if it has no id, create one as `## task header`
