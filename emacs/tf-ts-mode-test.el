@@ -160,7 +160,8 @@
       (font-lock-ensure)
       (goto-char (point-min))
       (search-forward "  A :")
-      (should (eq (get-text-property (- (point) 2) 'face) 'font-lock-keyword-face))
+      (should (tf-ts-mode-test--has-face 'font-lock-keyword-face
+                                         (get-text-property (- (point) 2) 'face)))
       (should (= (length (tf-ts-mode--fields (tf-ts-mode--task-node) "A")) 1))
       (indent-region (point-min) (point-max))
       (should (equal (buffer-string) text)))))
@@ -813,7 +814,10 @@
     (tf-ts-mode--update-folds)
     ;; the first block: every line (fences, short, blank, the folded one) is padded up to
     ;; it, the long one is folded instead; the band is not extended to the window edge
-    (let ((pads (tf-ts-mode-test--overlays 'after-string)))
+    (let ((pads (seq-remove
+                 (lambda (o) (memq (get-text-property 0 'face (overlay-get o 'after-string))
+                                   '(tf-ts-comment-face tf-ts-agent-face)))
+                 (tf-ts-mode-test--overlays 'after-string))))
       (should (= (length pads) 5))             ; fences, short, blank and the folded line
       (dolist (o pads)
         (should (equal (get-text-property 0 'display (overlay-get o 'after-string))
@@ -924,6 +928,35 @@
       (should (eq (key-binding (kbd (car b))) (cdr b))))
     (dolist (k '("C-c t" "C-c h" "C-c l"))
       (should-not (key-binding (kbd k))))))
+
+(ert-deftest tf-ts-mode-test-field-backgrounds ()
+  (let ((text (concat "# todo\n\n- [ ] t\n\n  D : dd\n\n  C : cc\n      cont\n\n  A : aa\n\n"
+                      "      ```\n          code\n      ```\n\n  A : last\n")))
+    (cl-flet ((has (face word) (tf-ts-mode-test--has-face
+                                face (tf-ts-mode-test--face-at text word))))
+      (should (has 'tf-ts-comment-face "cc"))
+      (should (has 'tf-ts-comment-face "cont"))
+      (should (has 'tf-ts-agent-face "aa"))
+      (should-not (has 'tf-ts-comment-face "dd"))
+      (should-not (has 'tf-ts-agent-face "dd"))
+      ;; code keeps its grey first, so it wins the background
+      (should (eq 'tf-ts-code-face (car (tf-ts-mode-test--face-at text "code")))))
+    (with-temp-buffer
+      (insert text)
+      (tf-ts-mode)
+      (font-lock-ensure)
+      (tf-ts-mode--update-folds)
+      ;; the blank line after `cont' is not part of the band
+      (goto-char (point-min))
+      (search-forward "cont\n")
+      (should-not (tf-ts-mode-test--has-face 'tf-ts-comment-face
+                                             (get-text-property (point) 'face)))
+      ;; padded rows: cc, cont, aa, the blank line inside it, last (not the D field, not the
+      ;; code block's lines)
+      (let ((pads (seq-filter (lambda (o) (memq (get-text-property 0 'face (overlay-get o 'after-string))
+                                                '(tf-ts-comment-face tf-ts-agent-face)))
+                              (tf-ts-mode-test--overlays 'after-string))))
+        (should (= (length pads) 5))))))
 
 (provide 'tf-ts-mode-test)
 
