@@ -166,7 +166,11 @@ A command is typed by the owner and run by the agent. Rules for every command:
    be writing in it: say what you are about to write and wait for the answer. An approved plan is
    not that approval. In the session of a task, the option chosen in step 5 of `tf` covers the
    follow-ups on it.
-3. Plan in plan mode when your agent has one (Claude Code: `EnterPlanMode`).
+3. Every execution plan (steps 3, 4 and 6 of `tf`, the plan of `tf <n>`) is made in plan mode
+   (Claude Code: `EnterPlanMode`), even if the session is in auto mode or another permission
+   mode: enter it before investigating, and leave it only when the owner approves the plan. Never
+   write the plan in chat instead. An agent without plan mode states the plan and waits for
+   approval.
 4. If the owner types `tf <something>` that isn't a built-in, say so and list the built-ins.
 5. Flags `-t <ref>` and `-j <ref>` of `tf` pick an item instead of the first open one. `<ref>` is
    a task or job id, or natural-language words. An id matches exactly; words are matched against
@@ -237,16 +241,16 @@ Built-in commands:
          ask (rule 2) to record the answer; on approval add an `A : ` field with the short
          answer, mark the item `[x]` and move it to the top of `# done`.
       3. Task, bug or job (type `t`, `b` or `j`; find the root cause of a bug first): its `D : `
-         and `C : ` fields are the spec (`A : ` holds earlier agent notes). Plan the
-         implementation and ask about anything they leave open; implement only after the owner
-         approves the plan. For a job, doing the work includes drafting or refining its `J : `
-         instructions so the next run can follow them.
-      4. Epic (type `e`, state `[ ]`, no task tagged `e<id>` yet): plan a split into tasks
-         instead of an implementation. Only such an epic is split by the agent; if tasks tagged
-         with its id exist, it is already split: its header must read `[<n>]`, fix `<n>` and
-         go on as step 1 says. In plan mode, investigate first, then ask the owner about
-         everything the split depends on (scope, approach choices, granularity) before writing
-         it. After approval of the split, ask for the approval to write it (rule 2) with the
+         and `C : ` fields are the spec (`A : ` holds earlier agent notes). Plan (plan mode,
+         rule 3) the implementation and ask about anything they leave open; implement only after
+         the owner approves the plan. For a job, doing the work includes drafting or refining its
+         `J : ` instructions so the next run can follow them.
+      4. Epic (type `e`, state `[ ]`, no task tagged `e<id>` yet): plan (plan mode, rule 3) a
+         split into tasks instead of an implementation. Only such an epic is split by the agent;
+         if tasks tagged with its id exist, it is already split: its header must read `[<n>]`,
+         fix `<n>` and go on as step 1 says. In plan mode, investigate first, then ask the owner
+         about everything the split depends on (scope, approach choices, granularity) before
+         writing it. After approval of the split, ask for the approval to write it (rule 2) with the
          numbered options of step 5, the word "close" replaced by "write the split":
 
          1. write the split;
@@ -282,9 +286,9 @@ Built-in commands:
       6. Run a job (`-j <ref>`): the job is in `# jobs`; read its `J : ` and the `A : ` and `C : `
          notes. Take the values of its parameters from the text the owner gave after the job's
          reference, and ask the owner explicitly for every parameter that has no value and no
-         default. Plan the run, naming the parameter values, ask about anything else left open,
-         run it after the owner approves the plan, and refine the instructions the run showed to
-         be wrong or missing, the parameter list included.
+         default. Plan (plan mode, rule 3) the run, naming the parameter values, ask about anything
+         else left open, run it after the owner approves the plan, and refine the instructions
+         the run showed to be wrong or missing, the parameter list included.
          Then, as in step 5, report and offer the numbered options:
 
          1. record the run;
@@ -303,10 +307,10 @@ Built-in commands:
       its open tasks are the items; if fewer are open, take those and say so.
 
       1. Questions among them: answer in the same reply and close them as step 2 of `tf` does.
-      2. Tasks, bugs, jobs and epics: one plan for all of them, with a section per item in `# todo`
-         order, plus what they share (common files, an order forced by dependencies, conflicts
-         between their specs). Ask all open questions at once. Epics get their split into
-         tasks, as step 4 of `tf` describes.
+      2. Tasks, bugs, jobs and epics: one plan (plan mode, rule 3) for all of them, with a
+         section per item in `# todo` order, plus what they share (common files, an order forced by
+         dependencies, conflicts between their specs). Ask all open questions at once. Epics get
+         their split into tasks, as step 4 of `tf` describes.
       3. After the owner approves the plan once, implement the items one by one. Close each
          (step 5 of `tf`) as soon as it is finished and verified.
       4. If an item gets blocked midway, stop there and report it; leave it and the items after
