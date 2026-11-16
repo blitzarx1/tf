@@ -23,6 +23,11 @@
     }
   },
   {
+    "type": "code_line",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "field",
     "named": true,
     "fields": {},
@@ -114,6 +119,30 @@
         }
       ]
     }
+  },
+  {
+    "type": "path",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "path_marker",
+          "named": true
+        },
+        {
+          "type": "path_value",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "path_value",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "priority",
@@ -230,6 +259,10 @@
         },
         {
           "type": "invalid",
+          "named": true
+        },
+        {
+          "type": "path",
           "named": true
         },
         {
@@ -401,10 +434,6 @@
     "named": false
   },
   {
-    "type": "code_line",
-    "named": true
-  },
-  {
     "type": "fence_close",
     "named": true
   },
@@ -434,6 +463,10 @@
   },
   {
     "type": "list_marker",
+    "named": true
+  },
+  {
+    "type": "path_marker",
     "named": true
   },
   {

@@ -20,16 +20,22 @@ Control plane for your llm: while the agent works, you plan the next moves.
 
 ## Install
 
-From your project root:
+From your projects directory, the folder that holds your projects (or from one project, if tf
+is for that project only):
 
 ```bash
 git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
 ```
 
-`install.sh`:
+One `.tf` serves every project below its folder; a task says which project it is about in its
+`/ ` header line. `install.sh`:
+- asks you to confirm or change the projects directory (default: the folder you cloned into; set
+  `TF_PROJECTS_DIR` to answer in advance) and moves `.tf` there if you change it; `$HOME` is fine;
 - turns `.tf` into a plain folder by deleting `.tf/.git`;
-- copies `.tf/skill` as the `tf` skill to `.claude/skills/tf` and `.agents/skills/tf`;
-- adds `@.tf/skill/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`;
+- copies `.tf/skill` as the `tf` skill to `.claude/skills/tf` and `.agents/skills/tf` in the
+  projects directory only (start the agent there to use `/tf`);
+- adds `@.tf/skill/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`; agents started in a
+  project below read those parent files too;
 - deletes `README.md` and itself from `.tf`, leaving `tasks.tfmd`, `update.sh`, `VERSION` and `skill/`.
 
 To keep the task list private, add `.tf/`, `.claude/skills/tf` and `.agents/skills/tf` to
@@ -37,7 +43,8 @@ To keep the task list private, add `.tf/`, `.claude/skills/tf` and `.agents/skil
 
 Already have a task list (a `TODO.md`, a folder of notes, an issues export)? Type
 `tf migrate <path>`: the agent reads it, shows what goes where, and fills `tasks.tfmd` once you
-agree. Your old files stay as they are.
+agree. Your old files stay as they are (old per-project `.tf` folders found below a folder you pass
+are merged in with a `/ ` line and then deleted).
 
 ## Use
 
@@ -47,7 +54,7 @@ agree. Your old files stay as they are.
 | `tf <n>` | works the first `<n>` open `# todo` items together: one plan covering all of them, one approval, then implements them in order and closes each. |
 | `tf -t <ref>` | works the `# todo` item with that id, or the one your words describe, instead of the first. One `tf` per session: later messages in it are follow-ups, recorded as readable `A :` notes on that task; a second `tf` is declined, start a fresh session (unless the first split an epic: its tasks can follow in the same session). |
 | `tf -j <ref>` | runs the job from `# jobs` with that id or description, following its `J :` instructions (give parameter values in words after the job, or it asks for them), then (after your approval) raises its run count `[<n>]` and records the refined instructions. |
-| `tf migrate <path>` | reads your old tracker (a file or a folder), shows what goes to `# todo`, `# backlog` and `# done`, and appends the tasks to `tasks.tfmd` once you agree. Open tasks it can't place go to `# backlog`. |
+| `tf migrate <path>` | reads your old tracker (a file or a folder), shows what goes to `# todo`, `# backlog` and `# done`, and appends the tasks to `tasks.tfmd` once you agree. Open tasks it can't place go to `# backlog`. A folder is searched for old per-project `.tf` folders too: their tasks come over with the project's `/ ` line, and after you agree those `.tf` folders are deleted. |
 
 Edit `tasks.tfmd` yourself whenever you like. Add new items to `# todo` or `# backlog`, move them
 between the two, and add `D : ` descriptions and `C : ` comments. The agent answers in `A : `
@@ -80,9 +87,11 @@ the task to `# done`:
 ```
 
 `! 80` is the priority (0-100, default 50) and `; b` the type: `t` task (the default), `q`
-question, `b` bug, `e` epic. Tags go on a `: ` line. Absent lines mean the defaults, so a new task
-is only a title and an id, `. 1792321201`: a unix timestamp in UTC (here 2026-10-18T11:00:01Z).
-Header lines go in the order id, priority, type, tags. A title is one sentence that starts in
+question, `b` bug, `e` epic. Tags go on a `: ` line. `/ services/api` is the project the task
+belongs to: a path relative to the folder that holds `.tf` (absent: that folder itself). Absent
+lines mean the defaults, so a new task is only a title and an id, `. 1792321201`: a unix timestamp
+in UTC (here 2026-10-18T11:00:01Z). Header lines go in the order id, project, priority, type,
+tags. A title is one sentence that starts in
 lowercase. The full format is in `skill/base.md`.
 
 An epic (`; e`) that `tf` splits stays in `# todo` as `- [<n>] <title>`, `<n>` being the number of
@@ -90,14 +99,24 @@ its open tasks (in `# todo` or `# backlog`); they get the tag `e<epic id>` plus 
 When `<n>` reaches 0 the epic stays open: you close it, or `tf` asks to. `tf` asks before working
 the first open task of a split epic.
 
+## Projects
+
+One `.tf` can serve many projects. A task's `/ ` line names its project; the agent works in that
+folder, finds it in the projects directory or asks for its git clone link. A task that needs
+several projects gets a folder in `.tf-worktrees` (in the projects directory) with a clone of each,
+and afterwards the agent offers to write a `summary.tfmd` there: a reader's summary that only
+refers to the root `.tf`, which stays the source of truth.
+
 ## Update
 
 ```bash
 .tf/update.sh
 ```
 
-This replaces `skill/`, `VERSION` and `update.sh` with the latest versions and prints the version
-change. It never touches `tasks.tfmd`.
+Run it from the projects directory, or from a folder below it as `../.tf/update.sh` (it updates the
+`.tf` next to itself and prints the projects directory). It replaces `skill/`, `VERSION` and
+`update.sh` with the latest versions and prints the version change. It never touches
+`tasks.tfmd`.
 
 ## Emacs
 
@@ -107,7 +126,7 @@ Keys, all under `C-c C-`:
 | Key | Does |
 |---|---|
 | `n` / `p` | next / previous task |
-| `t` | new task below the current one, with an id only (priority 50 and type `t` are the defaults) |
+| `t` | new task below the current one in 3 steps: the title (one line, not blank), the project path (completion from the paths in use and the folders of the root; blank: none), the tags (completion, separated by `, `; blank: none). It gets an id; priority 50 and type `t` are the defaults |
 | `h` / `l` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
 | `j` | add a `J : ` job instructions field with `Parameters:` and `Steps:` lists, or go to the existing one; a job in `# todo` moves to `# jobs` with `v` |
@@ -117,8 +136,9 @@ Keys, all under `C-c C-`:
 | `u` | run `.tf/update.sh` after a confirmation |
 | `i` | show the task's id as a date (also shown by eldoc on the id line) |
 
-Typing `. `, `! `, `; ` or `: ` on a
-header line moves it to its place in the header.
+Typing `. `, `/ `, `! `, `; ` or `: ` on a header line moves it to its place in the header. A
+`/ ` line is highlighted as a path, and eldoc on it shows the folder it points to. Splitting a task
+(`s`) gives the subtasks its `/ ` line too.
 
 Typing backticks helps too: one pairs (`` ` `` becomes a pair with the cursor between), the second
 steps over the closing one, and a third on an empty line makes a code block: the fences on their

@@ -994,6 +994,81 @@
                                                 '(tf-ts-comment-face tf-ts-agent-face tf-ts-job-face)))
                               (tf-ts-mode-test--overlays 'after-string))))))
 
+;;;; The `/ :' project path
+
+(ert-deftest tf-ts-mode-test-path-is-highlighted ()
+  (let ((text "# todo\n\n- [ ] a\n    . 1\n    / services/api\n"))
+    (should (tf-ts-mode-test--has-face 'font-lock-string-face
+                                       (tf-ts-mode-test--face-at text "api")))
+    (should (tf-ts-mode-test--has-face 'font-lock-delimiter-face
+                                       (tf-ts-mode-test--face-at text "    / ")))))
+
+(ert-deftest tf-ts-mode-test-snap-path ()
+  (let ((head "# todo\n\n- [ ] title\n"))
+    (should (equal (tf-ts-mode-test--snap (concat head "    . 1\n    ! 5\n    : t") "/ a/b")
+                   (concat head "    . 1\n    / a/b\n    ! 5\n    : t")))
+    (should (equal (tf-ts-mode-test--snap (concat head "    ! 5\n    : t") ". 1")
+                   (concat head "    . 1\n    ! 5\n    : t")))
+    (should (equal (tf-ts-mode-test--snap (concat head "    / a\n    : t") "! 5")
+                   (concat head "    / a\n    ! 5\n    : t")))))
+
+(ert-deftest tf-ts-mode-test-priority-with-path ()
+  (let ((head "# todo\n\n- [ ] title\n    . 1\n    / a\n"))
+    (tf-ts-mode-test--with-buffer (concat head "    ! 50\n")
+      (goto-char (point-min)) (search-forward "title")
+      (tf-ts-mode-priority-up)
+      (should (equal (buffer-string) (concat head "    ! 60\n"))))
+    (tf-ts-mode-test--with-buffer head
+      (goto-char (point-min)) (search-forward "title")
+      (tf-ts-mode-priority-up)
+      (should (equal (buffer-string) (concat head "    ! 60\n"))))))
+
+(ert-deftest tf-ts-mode-test-split-inherits-path ()
+  (let ((out (tf-ts-mode-test--split
+              "# todo\n\n- [ ] big\n    . 1\n    / svc/api\n    : ui\n" "] big" '("a"))))
+    (should (string-match-p "- \\[ \\] a\n    \\. [0-9]+\n    / svc/api\n    : e1 ui\n\\'" out))))
+
+(ert-deftest tf-ts-mode-test-eldoc-path ()
+  (tf-ts-mode-test--with-buffer "# todo\n\n- [ ] a\n    . 1\n    / svc/api\n"
+    (goto-char (point-min)) (search-forward "svc")
+    (should (string-suffix-p "svc/api" (tf-ts-mode--eldoc)))))
+
+;;;; `C-c C-t' in three steps
+
+(defun tf-ts-mode-test--new-interactive (text titles path tags)
+  "Run `tf-ts-mode-new' interactively in TEXT answering TITLES, PATH and TAGS; return the buffer.
+TITLES is the list of answers to the title question, in order."
+  (tf-ts-mode-test--with-buffer text
+    (goto-char (point-min))
+    (cl-letf (((symbol-function 'read-string) (lambda (&rest _) (pop titles)))
+              ((symbol-function 'completing-read) (lambda (&rest _) path))
+              ((symbol-function 'completing-read-multiple) (lambda (&rest _) tags)))
+      (call-interactively #'tf-ts-mode-new))
+    (list (tf-ts-mode-test--no-ids (buffer-string)) (point))))
+
+(ert-deftest tf-ts-mode-test-new-three-steps ()
+  (let ((out (tf-ts-mode-test--new-interactive "# todo\n\n- [ ] one\n" '("fix it") "svc/api"
+                                               '("ui" "bug"))))
+    (should (equal (car out)
+                   (concat "# todo\n\n- [ ] fix it\n    . ID\n    / svc/api\n    : ui bug\n\n"
+                           tf-ts-mode--separator "\n\n- [ ] one\n")))))
+
+(ert-deftest tf-ts-mode-test-new-blank-path-and-tags ()
+  (let ((out (tf-ts-mode-test--new-interactive "# todo\n\n- [ ] one\n" '("fix it") "" nil)))
+    (should (equal (car out)
+                   (concat "# todo\n\n- [ ] fix it\n    . ID\n\n" tf-ts-mode--separator
+                           "\n\n- [ ] one\n")))))
+
+(ert-deftest tf-ts-mode-test-new-blank-title-asks-again ()
+  (let ((out (tf-ts-mode-test--new-interactive "# todo\n" '("" "  " "later") "" nil)))
+    (should (string-prefix-p "# todo\n\n- [ ] later\n    . ID\n" (car out)))))
+
+(ert-deftest tf-ts-mode-test-new-candidates ()
+  (tf-ts-mode-test--with-buffer
+      "# todo\n\n- [ ] a\n    . 1\n    / svc/api\n    : ui e1\n\n- [ ] b\n    . 2\n    : ops ui\n"
+    (should (equal (tf-ts-mode--known-values 1) '("svc/api")))
+    (should (equal (sort (tf-ts-mode--known-values 4) #'string<) '("ops" "ui")))))
+
 (provide 'tf-ts-mode-test)
 
 ;;; tf-ts-mode-test.el ends here

@@ -5,7 +5,8 @@ description: Work the project's task file .tf/tasks.tfmd. Use when the owner typ
 
 # tf
 
-Read `.tf/skill/base.md` and `.tf/tasks.tfmd` from disk before acting. Find the command the owner
+Read `.tf/skill/base.md` and `.tf/tasks.tfmd` (the nearest `.tf` walking up from the current
+directory, rule 1 of `base.md`) from disk before acting. Find the command the owner
 typed in `## commands` of `base.md` (with their full definitions) and do what its definition
 says.
 

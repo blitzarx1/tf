@@ -15,12 +15,14 @@
 
 [
   (id_marker)
+  (path_marker)
   (priority_marker)
   (type_marker)
   (tags_marker)
 ] @punctuation.special
 
 (id_value) @number
+(path_value) @string.special.path
 (priority_value) @number
 (type_value) @type
 (tag) @tag

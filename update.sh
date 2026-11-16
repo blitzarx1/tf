@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Updates tf in place. Run from the project root: .tf/update.sh
+# Updates tf in place. Run it as .tf/update.sh from the projects directory (the folder that holds
+# .tf), or from any folder below it as ../.tf/update.sh: it works on the .tf next to itself.
 # Replaces skill/ (AGENTS.md, SKILL.md, base.md), VERSION and this script with the latest versions,
 # then refreshes the copies of skill/ in .claude/skills/tf and .agents/skills/tf.
 # Never touches tasks.tfmd: your tasks stay as they are.
@@ -25,7 +26,10 @@ show_version() {
 }
 
 repo="${TF_REPO:-https://github.com/blitzarx1/tf}"
-[ -f .tf/tasks.tfmd ] || { echo "run from the project root (no .tf/tasks.tfmd here)" >&2; exit 1; }
+root="$(cd "$(dirname "$0")/.." && pwd)"
+[ -f "$root/.tf/tasks.tfmd" ] || { echo "no .tf/tasks.tfmd next to $0" >&2; exit 1; }
+cd "$root"
+echo "projects directory: $root"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

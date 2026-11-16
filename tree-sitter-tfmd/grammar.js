@@ -41,6 +41,7 @@ export default grammar({
       $.task_header,
       repeat(alias($.text_line, $.title_continuation)),
       optional($.id),
+      optional($.path),
       optional($.priority),
       optional($.type),
       optional($.tags),
@@ -59,13 +60,16 @@ export default grammar({
     state_cancelled: $ => "- ~~[ ] ",
     title: $ => $._inline,
 
-    // Optional lines under the header, in this order: id, priority, type, tags. A property line
+    // Optional lines under the header, in this order: id, path, priority, type, tags. A property line
     // out of order, repeated or after a blank line is a `stray_property`.
     stray_property: $ => seq($.stray_marker, optional($.text), "\n"),
-    stray_marker: $ => token(prec(-1, /    [.!;:] /)),
+    stray_marker: $ => token(prec(-1, /    [.\/!;:] /)),
     id: $ => seq($.id_marker, $.id_value, "\n"),
     id_marker: $ => token(prec(1, /    \. /)),
     id_value: $ => /[0-9]+/,
+    path: $ => seq($.path_marker, $.path_value, "\n"),
+    path_marker: $ => token(prec(1, /    \/ /)),
+    path_value: $ => /[^\n]+/,
     priority: $ => seq($.priority_marker, $.priority_value, "\n"),
     priority_marker: $ => token(prec(1, /    ! /)),
     priority_value: $ => /[0-9]+/,

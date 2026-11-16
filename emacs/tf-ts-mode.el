@@ -14,8 +14,8 @@
 ;;   (treesit-install-language-grammar 'tfmd)
 ;;
 ;; A new task gets an id (the unix time); priority 50, type `t' and no tags are implied.  A
-;; property marker (`. ', `! ', `; ' or `: ') typed on a header line moves the line to its place:
-;; id, priority, type, tags.
+;; property marker (`. ', `/ ', `! ', `; ' or `: ') typed on a header line moves the line to its
+;; place: id, path (project, relative to the folder that holds `.tf'), priority, type, tags.
 ;;
 ;; The mode keeps lines at 100 columns (auto-fill; the 101st column and beyond, trailing spaces and
 ;; tabs are highlighted),
@@ -24,7 +24,8 @@
 ;; Keys (prefix C-c C-):
 ;;   n / p                 next / previous task
 ;;   t                     new task in `# todo' from anywhere: below the current task if it is in
-;;                         `# todo', else at the top of the section
+;;                         `# todo', else at the top of the section.  It asks for the title, the
+;;                         project path (completion) and the tags (completion, `, ' separated)
 ;;   d                     add a `D :' field (or a new paragraph in the existing one)
 ;;   m                     add a `C :' field (comment)
 ;;   j                     add a `J :' field (job instructions) with `Parameters:' and `Steps:'
@@ -145,10 +146,12 @@ It keeps the buffer's font, so a character fills one grid cell and lines end at 
 
    :language 'tfmd :feature 'property
    '((id_marker) @font-lock-delimiter-face
+     (path_marker) @font-lock-delimiter-face
      (priority_marker) @font-lock-delimiter-face
      (type_marker) @font-lock-delimiter-face
      (tags_marker) @font-lock-delimiter-face
      (id_value) @font-lock-number-face
+     (path_value) @font-lock-string-face
      (priority_value) @font-lock-number-face
      (type_value) @font-lock-type-face
      (tag) @font-lock-constant-face)
@@ -512,7 +515,7 @@ Stops at the first line that is not part of a list in a field."
            (or (not in-field) (zerop (current-indentation))))
       0)
      ((string-match-p "\\`[DCAJ] :\\( \\|\\'\\)" text) 2)
-     ((and in-header (string-match-p "\\`[.!;:] " text)) 4)
+     ((and in-header (string-match-p "\\`[./!;:] " text)) 4)
      ((string-match-p "\\``\\{3\\}" text) (if in-field 6 0))
      ((string-match-p "\\`\\([*-]\\|[0-9]+\\.\\) " text)
       (if (not in-field)
@@ -602,35 +605,79 @@ Stops at the first line that is not part of a list in a field."
   (let ((task (or (tf-ts-mode--task-node) (user-error "Not in a task"))))
     (tf-ts-mode--last-line-end task)))
 
-(defun tf-ts-mode-new ()
+(defun tf-ts-mode--known-values (rank)
+  "The distinct values of the property of RANK over the tasks of the buffer, as a list."
+  (let (values)
+    (dolist (task (tf-ts-mode--all-tasks))
+      (dolist (v (if (= rank 4)
+                     (tf-ts-mode--task-tags task)
+                   (list (tf-ts-mode--property-value task rank))))
+        (when (and v (not (string-empty-p v)) (not (string-match-p "\\`e[0-9]+\\'" v)))
+          (cl-pushnew v values :test #'equal))))
+    (nreverse values)))
+
+(defun tf-ts-mode--project-paths ()
+  "Candidates for a project path: the paths in use, and the folders of the root `.tf'."
+  (let* ((root (tf-ts-mode--root))
+         (dirs (and root
+                    (seq-filter
+                     (lambda (f) (and (file-directory-p (expand-file-name f root))
+                                      (not (string-prefix-p "." f))))
+                     (directory-files root nil nil t)))))
+    (delete-dups (append (tf-ts-mode--known-values 1) dirs))))
+
+(defun tf-ts-mode--read-new ()
+  "Ask for the parts of a new task: (TITLE PATH TAGS).
+First the title (one line, not blank), then the project path with completion (blank: none), then
+the tags with completion, separated by `, ' (blank: none)."
+  (let* ((title (string-trim (read-string "Title: ")))
+         path tags)
+    (while (string-empty-p title)
+      (setq title (string-trim (read-string "Title (cannot be blank): "))))
+    (setq path (string-trim (string-trim (completing-read "Project path (blank: none): "
+                                                          (tf-ts-mode--project-paths))
+                                         "/+" "/+")))
+    (setq tags (let ((crm-separator "[ \t]*,[ \t]*"))
+                 (completing-read-multiple "Tags (comma separated, blank: none): "
+                                           (tf-ts-mode--known-values 4))))
+    (list title (and (not (string-empty-p path)) path) (delete "" (mapcar #'string-trim tags)))))
+
+(defun tf-ts-mode-new (&optional title path tags)
   "Insert a new task into the todo section, wherever point is in the buffer.
+Interactively it asks for the title, the project path and the tags (see `tf-ts-mode--read-new').
 On a task of `# todo' the new task goes below it, divided by a separator; anywhere else, at the
-top of the section."
-  (interactive)
+top of the section.  Without a TITLE (from Lisp) the title is left empty for typing; PATH is a
+string or nil, TAGS a list of strings."
+  (interactive (tf-ts-mode--read-new))
   (let* ((task (tf-ts-mode--task-node))
-         (section (and task (treesit-node-parent task))))
+         (section (and task (treesit-node-parent task)))
+         (head (if title (tf-ts-mode--wrap-title title) "- [ ] "))
+         (props (tf-ts-mode--new-header-lines path tags)))
     (if (and section
              (equal (treesit-node-type section) "task_section")
              (equal (tf-ts-mode--section-heading section) "# todo"))
         (progn
           (goto-char (tf-ts-mode--last-line-end task))
-          (insert "\n\n" tf-ts-mode--separator "\n\n- [ ] ")
-          (save-excursion (insert (tf-ts-mode--new-header-lines))))
-      (goto-char (+ 6 (atomic-change-group
-                        (tf-ts-mode--insert-task-at-top
-                         "# todo" (concat "- [ ] " (tf-ts-mode--new-header-lines)))))))))
+          (insert "\n\n" tf-ts-mode--separator "\n\n" head)
+          (save-excursion (insert props)))
+      (let ((pos (atomic-change-group
+                   (tf-ts-mode--insert-task-at-top "# todo" (concat head props)))))
+        (goto-char (+ pos (length head)))))))
 
-(defun tf-ts-mode--new-header-lines ()
-  "Property lines of a new task: its id (the unix time now); the rest is implied by defaults."
-  (format "\n    . %d" (tf-ts-mode--new-id)))
+(defun tf-ts-mode--new-header-lines (&optional path tags)
+  "Property lines of a new task: its id (the unix time now), PATH and TAGS if given.
+The rest is implied by defaults."
+  (concat (format "\n    . %d" (tf-ts-mode--new-id))
+          (if path (format "\n    / %s" path) "")
+          (if tags (format "\n    : %s" (string-join tags " ")) "")))
 
 (defun tf-ts-mode--change-priority (delta)
   "Add DELTA to the priority of the current task, within 0 to 100.
 A task without a priority line gets one, from the default 50."
   (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
-         (line (tf-ts-mode--property-line task 1))
+         (line (tf-ts-mode--property-line task 2))
          (value (if line
-                    (string-to-number (tf-ts-mode--property-value task 1))
+                    (string-to-number (tf-ts-mode--property-value task 2))
                   50))
          (new (max 0 (min 100 (+ value delta)))))
     (atomic-change-group
@@ -638,7 +685,7 @@ A task without a priority line gets one, from the default 50."
           (progn (goto-char (+ 6 (car line)))
                  (delete-region (point) (cadr line)))
         (goto-char (tf-ts-mode--property-anchor
-                    (tf-ts-mode--header-layout (treesit-node-start task) nil) 1))
+                    (tf-ts-mode--header-layout (treesit-node-start task) nil) 2))
         (insert "\n    ! "))
       (insert (number-to-string new)))
     (message "Priority %d" new)))
@@ -661,12 +708,23 @@ A task without a priority line gets one, from the default 50."
     (unless (and id (string-match-p "\\`[0-9]+\\'" id)) (user-error "The task has no id"))
     (message "%s = %s" id (tf-ts-mode--id-date (string-to-number id)))))
 
+(defun tf-ts-mode--root ()
+  "The folder that holds the `.tf' folder of the current buffer, or nil."
+  (when-let* ((dir (locate-dominating-file (or buffer-file-name default-directory)
+                                           ".tf/tasks.tfmd")))
+    (expand-file-name dir)))
+
 (defun tf-ts-mode--eldoc (&rest _)
-  "Documentation function: the date of the id at point."
-  (when (save-excursion
-          (beginning-of-line)
-          (looking-at "    \\. \\([0-9]+\\)$"))
-    (tf-ts-mode--id-date (string-to-number (match-string 1)))))
+  "Documentation function: the date of the id at point, the folder of the path at point."
+  (save-excursion
+    (beginning-of-line)
+    (cond ((looking-at "    \\. \\([0-9]+\\)$")
+           (tf-ts-mode--id-date (string-to-number (match-string 1))))
+          ((looking-at "    / \\(.+\\)$")
+           (let ((root (tf-ts-mode--root)))
+             (if root
+                 (abbreviate-file-name (expand-file-name (match-string 1) root))
+               (match-string 1)))))))
 
 (defun tf-ts-mode--fields (task label)
   "Field nodes of TASK whose label is LABEL (\"D\", \"C\" or \"A\"), or all fields when nil."
@@ -868,11 +926,11 @@ Returns the position of TEXT."
 
 (defun tf-ts-mode--task-tags (task)
   "The tags of TASK, a list of strings."
-  (split-string (or (tf-ts-mode--property-value task 3) "") " +" t))
+  (split-string (or (tf-ts-mode--property-value task 4) "") " +" t))
 
 (defun tf-ts-mode--epic-id (task)
   "Id of TASK if its type is `e' and it has an id, else nil."
-  (and (equal (tf-ts-mode--property-value task 2) "e")
+  (and (equal (tf-ts-mode--property-value task 3) "e")
        (let ((id (tf-ts-mode--property-value task 0)))
          (and id (string-match-p "\\`[0-9]+\\'" id) id))))
 
@@ -956,7 +1014,7 @@ subtasks open and some not, nothing moves.  An epic is never closed by its last 
             (tf-ts-mode--sync-epic epic-id))
           (goto-char pos))
       (let* ((next (tf-ts-mode--next-stage (tf-ts-mode--section-heading section) state
-                                           (tf-ts-mode--property-value task 2)))
+                                           (tf-ts-mode--property-value task 3)))
              (links (delq nil (mapcar (lambda (tag)
                                         (and (string-match "\\`e\\([0-9]+\\)\\'" tag)
                                              (match-string 1 tag)))
@@ -981,7 +1039,7 @@ The property line is added in its place if the task has none."
                  (delete-region (point) (cadr line))
                  (insert value))
         (goto-char (tf-ts-mode--property-anchor layout rank))
-        (insert (format "\n    %c %s" (aref ".!;:" rank) value))))))
+        (insert (format "\n    %c %s" (aref "./!;:" rank) value))))))
 
 (defun tf-ts-mode--wrap-title (title)
   "TITLE as header text: wrapped at the column limit, continuation lines indented to 6."
@@ -1007,7 +1065,7 @@ The property line is added in its place if the task has none."
 Interactively the titles are asked for one by one; an empty one ends the list.  The task
 becomes an epic: its type is `e', it gets an id if it has none, and its header reads
 `- [<n>]', n the number of its open subtasks.  The subtasks go right below it, tagged `e<id>'
-and with the epic's tags.  Any open task can be split; a split epic gets more subtasks."
+and with the epic's path and tags.  Any open task can be split; a split epic gets more subtasks."
   (interactive (list (tf-ts-mode--read-subtask-titles)))
   (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task"))))
     (unless titles (user-error "No subtasks"))
@@ -1016,19 +1074,22 @@ and with the epic's tags.  Any open task can be split; a split epic gets more su
     (unless (member (tf-ts-mode--task-state task) '("state_open" "state_split"))
       (user-error "Only an open task can be split"))
     (let ((start (copy-marker (treesit-node-start task)))
-          id tags)
+          id path tags)
       (atomic-change-group
         (setq id (or (tf-ts-mode--property-value task 0)
                      (let ((new (number-to-string (tf-ts-mode--new-id))))
                        (tf-ts-mode--set-property start 0 new)
                        new)))
-        (tf-ts-mode--set-property start 2 "e")
+        (tf-ts-mode--set-property start 3 "e")
         (setq task (tf-ts-mode--task-by-id id)
+              path (tf-ts-mode--property-value task 1)
               tags (string-join (cons (concat "e" id) (tf-ts-mode--task-tags task)) " "))
         (goto-char (tf-ts-mode--last-line-end task))
         (dolist (title titles)
           (insert "\n\n" tf-ts-mode--separator "\n\n" (tf-ts-mode--wrap-title title)
-                  (format "\n    . %d\n    : %s" (tf-ts-mode--new-id) tags)))
+                  (format "\n    . %d%s\n    : %s" (tf-ts-mode--new-id)
+                          (if (member path '(nil "")) "" (format "\n    / %s" path))
+                          tags)))
         (tf-ts-mode--sync-epic id))
       (goto-char start))))
 
@@ -1059,16 +1120,17 @@ and with the epic's tags.  Any open task can be split; a split epic gets more su
 
 ;;;; Typing helpers
 
-(defconst tf-ts-mode--property-regexp "^    \\([.!;:]\\) "
-  "A property line of a task header: id, priority, type or tags.")
+(defconst tf-ts-mode--property-regexp "^    \\([./!;:]\\) "
+  "A property line of a task header: id, path, priority, type or tags.")
 
 (defconst tf-ts-mode--header-end-regexp
   (concat "^\\(?:[ \t]*$\\|  [DCAJ] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
   "A line that ends the header region of a task: blank, a field, a heading, a task or a separator.")
 
 (defun tf-ts-mode--property-rank (char)
-  "Place of the property line with the marker CHAR in the header: id, priority, type, tags."
-  (pcase char (?. 0) (?! 1) (?\; 2) (?: 3)))
+  "Place of the property line with the marker CHAR in the header.
+The order is id, path, priority, type, tags."
+  (pcase char (?. 0) (?/ 1) (?! 2) (?\; 3) (?: 4)))
 
 (defun tf-ts-mode--header-start ()
   "Start of the task header line above the current line, or nil.
@@ -1104,12 +1166,12 @@ Returns (TITLE-END . PROPERTIES): the end of the last title line, and the proper
 
 (defun tf-ts-mode--snap-property ()
   "Put the line to where its property belongs once its marker is typed.
-The header lines go in the order id, priority, type, tags, after the title.  After RET under a
-title the cursor sits at the title text, so a marker typed there would read as a wrapped title
-line; the line moves after the properties of lower rank (or the title) and is indented to 4.  A
-kind the task already has stays where it is, only indented."
+The header lines go in the order id, path, priority, type, tags, after the title.  After RET
+under a title the cursor sits at the title text, so a marker typed there would read as a wrapped
+title line; the line moves after the properties of lower rank (or the title) and is indented to
+4.  A kind the task already has stays where it is, only indented."
   (when (and (eq last-command-event ?\s)
-             (string-match "\\`[ \t]*\\([.!;:]\\) \\'"
+             (string-match "\\`[ \t]*\\([./!;:]\\) \\'"
                            (buffer-substring-no-properties (line-beginning-position) (point))))
     (let* ((char (aref (match-string 1 (buffer-substring-no-properties
                                         (line-beginning-position) (point)))

@@ -20,16 +20,20 @@ commands.
 ## task header
 
 Task header identifies the task and its main properties. The property lines are optional, in this
-order, and indented 4 spaces. Id: `. ` and an integer. Priority: `! ` and an integer from 0 to
-100; default 50, higher is more urgent, and it doesn't change which item `tf` picks. Type: `; `
-and a lowercase word, one of the types below. Tags: `: ` and the tags, separated by spaces.
+order, and indented 4 spaces. Id: `. ` and an integer. Project: `/ ` and a path, relative to the
+root `.tf` (the folder that holds `.tf`, the `projects directory`), without a leading `/`. Priority:
+`! ` and an integer from 0 to 100; default 50, higher is more urgent, and it doesn't change which
+item `tf` picks. Type: `; ` and a lowercase word, one of the types below. Tags: `: ` and the tags,
+separated by spaces.
 
-A property that is absent has its default: priority 50, type `t`, no tags. A new task is written
-with the title and the id only; the other lines appear when they differ from the default.
+A property that is absent has its default: project the projects directory itself (also when the
+line is empty), priority 50, type `t`, no tags. A new task is written with the title and the id
+only; the other lines appear when they differ from the default.
 
 ```
 - [ ] <title>
     . <id>
+    / <project path>
     ! <priority>
     ; <type>
     : <tag1> <tag2>
@@ -73,6 +77,8 @@ A job automates work that is done many times. Its logic is explicit: plain-word 
 the agent and/or a script the agent runs, kept in the `J : ` field. The instructions may be empty
 at first; they are drafted and refined by the runs.
 
+* A job runs from the folder of its `/ :` path (the projects directory when it has none): its
+  steps and scripts start there.
 * A job is created as a task of type `j` in `# todo` or `# backlog`, worked like any task. On
   closing (step 5 of `tf`) it goes to the top of `# jobs` as `- [<n>]` instead of `# done`, and
   stays there. Never `[x]`.
@@ -152,14 +158,32 @@ tag. The fences go where the field's text starts (column 6).
 Tags are free: they need no registration, write them on the `: ` line. A tag `e<id>` links a task
 to the epic with that id.
 
+## projects
+
+The root `.tf` serves the projects below the `projects directory` (its parent folder). A task's
+`/ :` names its project; a task that needs several projects, or none in particular, has no `/ :`.
+
+* One project: the agent finds it in the projects directory. If it is not there, it asks the owner
+  for the git clone link, clones it into the projects directory and works inside that folder.
+* Several projects: the agent makes sure `.tf-worktrees` exists in the projects directory, creates
+  in it a folder named from the task title (lowercase words joined by `-`) and clones the projects
+  it needs into that folder; the code is changed there. The folder's path is recorded in an `A : `
+  note of the task.
+* `summary.tfmd` in a worktree folder is only for the owner: a reader's summary. It starts with a
+  disclaimer that it is a reference to the root `.tf`, then mirrors, in `tasks.tfmd` format, the
+  tasks that worked in that worktree (those whose `A : ` note names its folder). The agent never
+  reads it for state: the root `.tf` is the source of truth, and everything current is kept there.
+
 ## commands
 
 A command is typed by the owner and run by the agent. Rules for every command:
 
-1. Re-read `.tf/tasks.tfmd` and `.tf/skill/base.md` from disk first, even if you read them
-   earlier in the session: the owner edits them between commands, so a remembered state is
-   stale. Load the whole `tasks.tfmd` (every section, in full) into context, so you know all the
-   tasks and jobs of the project while working the current one.
+1. Find the root `.tf`: the nearest `.tf/tasks.tfmd` walking up from the current directory; its
+   parent folder is the `projects directory` (the root), and `/ :` paths are relative to it. Then
+   re-read `.tf/tasks.tfmd` and `.tf/skill/base.md` from there, even if you read them earlier in
+   the session: the owner edits them between commands, so a remembered state is stale. Load the
+   whole `tasks.tfmd` (every section, in full) into context, so you know all the tasks and jobs
+   of the projects while working the current one.
 2. Touch only the items the command works on. Keep the owner's wording and the other items as they
    are; reflow only to stay within the format. Never cancel an item (`~~...~~`) yourself.
    Edit `.tf/tasks.tfmd` only after the owner explicitly approves that edit, since the owner may
@@ -229,8 +253,11 @@ Built-in commands:
       1. Take the first item under `# todo` that is still `[ ]` or `[<n>]` (not done, not struck
          through) and not blank (skip empty placeholders); with `-t`, the open item of `# todo`
          that `<ref>` names. With `-j`, go to step 6 instead. Never pick from `# backlog` or
-         `# jobs` otherwise. If no open item is left in `# todo`, say so and stop. A split epic
-         `[<n>]` is not worked itself:
+         `# jobs` otherwise. If no open item is left in `# todo`, say so and stop. Started in the
+         root, every item counts; started in a project folder below the root, only the items
+         whose `/ :` is that folder or a folder below it count (items without `/ :` are skipped),
+         and the same filter applies to `tf <n>` and to `-t` (`-j` is never filtered). A split
+         epic `[<n>]` is not worked itself:
 
          * if some of its tasks (tagged `e<id>`) are open in `# todo`, ask the owner whether
            you may proceed with the first of them, and on yes work that task as step 2 or 3
@@ -241,10 +268,13 @@ Built-in commands:
          ask (rule 2) to record the answer; on approval add an `A : ` field with the short
          answer, mark the item `[x]` and move it to the top of `# done`.
       3. Task, bug or job (type `t`, `b` or `j`; find the root cause of a bug first): its `D : `
-         and `C : ` fields are the spec (`A : ` holds earlier agent notes). Plan (plan mode,
-         rule 3) the implementation and ask about anything they leave open; implement only after
-         the owner approves the plan. For a job, doing the work includes drafting or refining its
-         `J : ` instructions so the next run can follow them.
+         and `C : ` fields are the spec (`A : ` holds earlier agent notes). The work happens in
+         the folder of its `/ :` (relative to the root; the root itself without one); if the task
+         needs a project that is not in the projects directory, or several projects, follow
+         `## projects` (which project or projects it needs is part of the plan). Plan (plan
+         mode, rule 3) the implementation and ask about anything they leave open; implement only
+         after the owner approves the plan. For a job, doing the work includes drafting or refining
+         its `J : ` instructions so the next run can follow them.
       4. Epic (type `e`, state `[ ]`, no task tagged `e<id>` yet): plan (plan mode, rule 3) a
          split into tasks instead of an implementation. Only such an epic is split by the agent;
          if tasks tagged with its id exist, it is already split: its header must read `[<n>]`,
@@ -283,11 +313,16 @@ Built-in commands:
          `<n>` in the header of the epic with that id by one; at `[0]` leave the epic open, it is
          closed as step 1 says. Later follow-ups (rule 6) keep the last choice unless the owner
          says otherwise.
+
+         If the task was worked in a worktree (`## projects`), also ask, in the same report,
+         whether to create or update `summary.tfmd` in the worktree folder, and write it only on
+         a yes; it is a file outside `tasks.tfmd`, written after the item is closed.
       6. Run a job (`-j <ref>`): the job is in `# jobs`; read its `J : ` and the `A : ` and `C : `
          notes. Take the values of its parameters from the text the owner gave after the job's
          reference, and ask the owner explicitly for every parameter that has no value and no
          default. Plan (plan mode, rule 3) the run, naming the parameter values, ask about anything
-         else left open, run it after the owner approves the plan, and refine the instructions
+         else left open (a job starts in the folder of its `/ :`), run it after the owner approves
+         the plan, and refine the instructions
          the run showed to be wrong or missing, the parameter list included.
          Then, as in step 5, report and offer the numbered options:
 
@@ -321,9 +356,16 @@ Built-in commands:
   D : Import the tasks of another tracker into `tasks.tfmd`.
 
       1. `<path>` is a file or a directory. For a directory, go through every file recursively,
-         skipping `.git`, `.tf`, dependency and build folders, and binaries. Infer each file's
-         format (Markdown checklists, `TODO`/`todo.txt`, org-mode, JSON or CSV issue exports,
-         plain notes, ...); ignore files with no tasks.
+         skipping `.git`, the root `.tf`, dependency and build folders, and binaries. Infer each
+         file's format (Markdown checklists, `TODO`/`todo.txt`, org-mode, JSON or CSV issue
+         exports, plain notes, ...); ignore files with no tasks.
+
+         A `.tf` folder found below `<path>` (one with a `tasks.tfmd`) is a tf source, not a
+         foreign tracker: its tasks keep their sections, state, id, type, priority, tags and
+         fields as they are, and get the `/ :` line of the folder that holds that `.tf`, as a path
+         relative to the root `.tf` (prefixed to any `/ :` they already have). An id that is
+         already taken in the root gets the next free unix second. Its `skill/`, `update.sh` and
+         `VERSION` are not tasks and are not read.
       2. Map each task:
          * title to the header `- [ ] <title>`, description to `D : `, notes and comments to
            `C : `, keeping the source wording and reflowing it to the format;
@@ -335,7 +377,12 @@ Built-in commands:
          * done tasks to `# done` as `[x]`; cancelled or won't-do tasks to `# done` as
            `~~[ ] <title>~~`.
       3. Preview before writing: the files read and the format inferred for each, the number of
-         tasks per section (todo, backlog, done, cancelled), the new tags, and every task whose
-         mapping was a guess. Write only after the owner approves.
+         tasks per section (todo, backlog, done, cancelled), the new tags, every task whose
+         mapping was a guess, and the old `.tf` folders that will be deleted. Write only after
+         the owner approves.
       4. Append the migrated tasks below the existing items of each section, with the usual
-         separators. Never change or delete the source files.
+         separators. Never change or delete the source files of a foreign tracker. Each old `.tf`
+         folder is deleted once its tasks are written, so that it no longer breaks the hierarchy
+         of the root `.tf` (the nearest `.tf` walking up wins); say which of the `CLAUDE.md`,
+         `AGENTS.md`, `.claude/skills/tf` and `.agents/skills/tf` next to it were installed by tf
+         and leave them to the owner.

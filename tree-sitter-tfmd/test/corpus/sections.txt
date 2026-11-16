@@ -372,3 +372,58 @@ jobs section with a run count and a job field
       (field
         (field_label)
         (field_text)))))
+
+================================================================================:sep
+project path property
+================================================================================:sep
+# todo
+
+- [ ] in a project
+    . 1792321201
+    / services/api
+    ! 80
+    ; b
+    : auth
+
+- [ ] path out of order
+    . 1792321202
+    ! 80
+    / services/api
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (id
+        (id_marker)
+        (id_value))
+      (path
+        (path_marker)
+        (path_value))
+      (priority
+        (priority_marker)
+        (priority_value))
+      (type
+        (type_marker)
+        (type_value))
+      (tags
+        (tags_marker)
+        (tag)))
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (id
+        (id_marker)
+        (id_value))
+      (priority
+        (priority_marker)
+        (priority_value))
+      (stray_property
+        (stray_marker)
+        (text)))))

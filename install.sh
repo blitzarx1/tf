@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Wires tf into the project. Run from the project root, right after cloning:
+# Wires tf into a projects directory: the folder that holds .tf and the projects below it. Run it
+# from the directory to use, right after cloning:
 #   git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
-# Safe to run again: every step checks first.
+# It asks to confirm or change the projects directory (default: where .tf was cloned; set
+# TF_PROJECTS_DIR to answer in advance). Safe to run again: every step checks first.
 set -euo pipefail
 
-[ -f .tf/tasks.tfmd ] || { echo "run from the project root, with tf cloned into .tf" >&2; exit 1; }
+tf_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "$tf_dir/tasks.tfmd" ] || { echo "run it as .tf/install.sh, with tf cloned into .tf" >&2; exit 1; }
 
 # write_version REPO OUT: writes the tf version of the clone REPO to OUT. Line 1 is the release
 # tag of the commit (no leading "v"), or the nearest earlier tag plus "-dev", or empty if there are
@@ -24,6 +27,26 @@ show_version() {
 	{ read -r tag; read -r hash; } < "$1"
 	echo "${tag:+$tag }(${hash:0:7})"
 }
+
+# The projects directory: the root of this .tf. If it is not where .tf is now, .tf moves there.
+default_root="$(dirname "$tf_dir")"
+root="${TF_PROJECTS_DIR:-}"
+if [ -z "$root" ]; then
+	root="$default_root"
+	if [ -t 0 ]; then
+		read -r -p "Projects directory [$default_root]: " answer
+		root="${answer:-$default_root}"
+	fi
+fi
+root="${root/#\~/$HOME}"
+mkdir -p "$root"
+root="$(cd "$root" && pwd)"
+if [ "$root/.tf" != "$tf_dir" ]; then
+	[ -e "$root/.tf" ] && { echo "$root/.tf already exists; remove it or pick another directory" >&2; exit 1; }
+	mv "$tf_dir" "$root/.tf"
+fi
+cd "$root"
+echo "projects directory: $root"
 
 # A plain copy you edit in place, not a clone: updates go through .tf/update.sh. The version is
 # read from git first, while .tf/.git is still there.
@@ -54,4 +77,4 @@ add_line AGENTS.md "Tasks: follow .tf/skill/AGENTS.md (tf task flow)." # Codex r
 # clean up the
 rm -f .tf/README.md .tf/install.sh
 rm -rf .tf/emacs .tf/tree-sitter-tfmd
-echo "tf $(show_version .tf/VERSION) installed: tasks in .tf/tasks.tfmd; add tasks there yourself, use '/tf' command with claude or codex to work with them."
+echo "tf $(show_version .tf/VERSION) installed in $root: tasks in .tf/tasks.tfmd; add tasks there yourself, use '/tf' command with claude or codex from $root to work with them."
