@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Wires tf into a projects directory: the folder that holds .tf and the projects below it. Run it
+# Wires tf into a home folder: the folder that holds .tf and the projects below it. Run it
 # from the directory to use, right after cloning:
 #   git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
-# It asks to confirm or change the projects directory (default: where .tf was cloned; set
+# It asks to confirm or change the home folder (default: where .tf was cloned; set
 # TF_PROJECTS_DIR to answer in advance). Safe to run again: every step checks first.
 set -euo pipefail
 
@@ -28,13 +28,13 @@ show_version() {
 	echo "${tag:+$tag }(${hash:0:7})"
 }
 
-# The projects directory: the root of this .tf. If it is not where .tf is now, .tf moves there.
+# The home folder: the root of this .tf. If it is not where .tf is now, .tf moves there.
 default_root="$(dirname "$tf_dir")"
 root="${TF_PROJECTS_DIR:-}"
 if [ -z "$root" ]; then
 	root="$default_root"
 	if [ -t 0 ]; then
-		read -r -p "Projects directory [$default_root]: " answer
+		read -r -p "Home folder [$default_root]: " answer
 		root="${answer:-$default_root}"
 	fi
 fi
@@ -46,7 +46,7 @@ if [ "$root/.tf" != "$tf_dir" ]; then
 	mv "$tf_dir" "$root/.tf"
 fi
 cd "$root"
-echo "projects directory: $root"
+echo "home folder: $root"
 
 # A plain copy you edit in place, not a clone: updates go through .tf/update.sh. The version is
 # read from git first, while .tf/.git is still there.

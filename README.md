@@ -20,20 +20,20 @@ Control plane for your llm: while the agent works, you plan the next moves.
 
 ## Install
 
-From your projects directory, the folder that holds your projects (or from one project, if tf
-is for that project only):
+From any folder: a home folder that holds your projects, or a single project. `.tf` folders
+may sit on any level (a global one for many projects, local ones inside projects):
 
 ```bash
 git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
 ```
 
-One `.tf` serves every project below its folder; a task says which project it is about in its
+One `.tf` serves every project below its folder (its home folder); a task says which project it is about in its
 `/ ` header line. `install.sh`:
-- asks you to confirm or change the projects directory (default: the folder you cloned into; set
+- asks you to confirm or change the home folder (default: the folder you cloned into; set
   `TF_PROJECTS_DIR` to answer in advance) and moves `.tf` there if you change it; `$HOME` is fine;
 - turns `.tf` into a plain folder by deleting `.tf/.git`;
 - copies `.tf/skill` as the `tf` skill to `.claude/skills/tf` and `.agents/skills/tf` in the
-  projects directory only (start the agent there to use `/tf`);
+  home folder only (start the agent there or below it to use `/tf`);
 - adds `@.tf/skill/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`; agents started in a
   project below read those parent files too;
 - deletes `README.md` and itself from `.tf`, leaving `tasks.tfmd`, `update.sh`, `VERSION` and `skill/`.
@@ -41,20 +41,14 @@ One `.tf` serves every project below its folder; a task says which project it is
 To keep the task list private, add `.tf/`, `.claude/skills/tf` and `.agents/skills/tf` to
 `.gitignore`.
 
-Already have a task list (a `TODO.md`, a folder of notes, an issues export)? Type
-`tf migrate <path>`: the agent reads it, shows what goes where, and fills `tasks.tfmd` once you
-agree. Your old files stay as they are (old per-project `.tf` folders found below a folder you pass
-are merged in with a `/ ` line and then deleted).
-
 ## Use
 
 | You type | The agent |
 |---|---|
-| `tf` | re-reads `.tf/tasks.tfmd` and works the first open `# todo` item: answers a question, plans and then implements a task or bug, or asks you questions and splits an epic into tasks. Then it asks whether to close, close and commit, or close, commit and push, and moves the item to `# done` with a summary (a job, type `j`, goes to `# jobs` instead and stays there). |
+| `tf` | finds the closest `.tf` (walking up from where you started), loads it and every `.tf` below its folder, and works the first open `# todo` item: answers a question, plans and then implements a task or bug, or asks you questions and splits an epic into tasks. Then it offers numbered options built from what was done (close, commit, push, worktree summary, and their combinations; answer with digits), and moves the item to `# done` with a summary (a job, type `j`, goes to `# jobs` instead and stays there). |
 | `tf <n>` | works the first `<n>` open `# todo` items together: one plan covering all of them, one approval, then implements them in order and closes each. |
 | `tf -t <ref>` | works the `# todo` item with that id, or the one your words describe, instead of the first. One `tf` per session: later messages in it are follow-ups, recorded as readable `A :` notes on that task; a second `tf` is declined, start a fresh session (unless the first split an epic: its tasks can follow in the same session). |
 | `tf -j <ref>` | runs the job from `# jobs` with that id or description, following its `J :` instructions (give parameter values in words after the job, or it asks for them), then (after your approval) raises its run count `[<n>]` and records the refined instructions. |
-| `tf migrate <path>` | reads your old tracker (a file or a folder), shows what goes to `# todo`, `# backlog` and `# done`, and appends the tasks to `tasks.tfmd` once you agree. Open tasks it can't place go to `# backlog`. A folder is searched for old per-project `.tf` folders too: their tasks come over with the project's `/ ` line, and after you agree those `.tf` folders are deleted. |
 
 Edit `tasks.tfmd` yourself whenever you like. Add new items to `# todo` or `# backlog`, move them
 between the two, and add `D : ` descriptions and `C : ` comments. The agent answers in `A : `
@@ -101,11 +95,12 @@ the first open task of a split epic.
 
 ## Projects
 
-One `.tf` can serve many projects. A task's `/ ` line names its project; the agent works in that
-folder, finds it in the projects directory or asks for its git clone link. A task that needs
-several projects gets a folder in `.tf-worktrees` (in the projects directory) with a clone of each,
+One `.tf` can serve many projects; `.tf` folders can also be nested: `tf` works the closest one
+(`-t`/`-j` may also name an item of a `.tf` below it). A task's `/ ` line names its project; the agent works in that
+folder, finds it in the home folder or asks for its git clone link. A task that needs
+several projects gets a folder in `.tf-worktrees` (in the home folder) with a clone of each,
 and afterwards the agent offers to write a `summary.tfmd` there: a reader's summary that only
-refers to the root `.tf`, which stays the source of truth.
+refers to the `.tf` of the task, which stays the source of truth.
 
 ## Update
 
@@ -113,8 +108,8 @@ refers to the root `.tf`, which stays the source of truth.
 .tf/update.sh
 ```
 
-Run it from the projects directory, or from a folder below it as `../.tf/update.sh` (it updates the
-`.tf` next to itself and prints the projects directory). It replaces `skill/`, `VERSION` and
+Run it from the home folder, or from a folder below it as `../.tf/update.sh` (it updates the
+`.tf` next to itself and prints the home folder). It replaces `skill/`, `VERSION` and
 `update.sh` with the latest versions and prints the version change. It never touches
 `tasks.tfmd`.
 
@@ -145,7 +140,9 @@ steps over the closing one, and a third on an empty line makes a code block: the
 own lines and the cursor on the code line between them, 4 columns deeper. Inline code and code
 blocks are highlighted monospace on a subtle background. A code line less than 4 columns deeper
 than its fence, or a closing fence off the opening one's column, is marked red, and `TAB` moves it
-into place.
+into place. Away from a code block, text past the column limit is hidden behind `...` and
+lines past the first 10 (`tf-ts-mode-max-block-lines`, nil: no limit) fold into one
+`... N more lines` row; the block at point is shown whole.
 
 The label of a `C :` field (yours), from the line start to the `:`, gets a pastel yellow
 background, that of an `A :` field (the agent's) a pastel blue one and that of a `J :` field (job

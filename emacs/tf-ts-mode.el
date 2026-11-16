@@ -104,6 +104,11 @@ It keeps the buffer's font, so a character fills one grid cell and lines end at 
   "Non-nil: hide the text past the column limit in fenced blocks, except in the block at point."
   :type 'boolean)
 
+(defcustom tf-ts-mode-max-block-lines 10
+  "Number of lines of a fenced block shown outside the block at point; the rest folds.
+Nil: never fold lines.  Like the hidden overflow, the block at point is shown whole."
+  :type '(choice (const :tag "No limit" nil) integer))
+
 (defconst tf-ts-mode--fold-marker "..."
   "Shown instead of the hidden text of a fenced block line: plain characters, one cell each.")
 
@@ -328,6 +333,36 @@ to the band width, so all rows end the same way and flush with the ruler."
        eol eol 'after-string
        (propertize " " 'face 'tf-ts-code-face 'display `(space :align-to ,width))))))
 
+(defun tf-ts-mode--fold-lines (from last-eol)
+  "Fold the lines of the fenced block FROM to LAST-EOL past `tf-ts-mode-max-block-lines'.
+FROM is the start of the opening fence, LAST-EOL the end of the closing fence's line.  The first
+hidden line shows `... N more lines' in the code band and the others vanish with their newlines.
+Return the end of the last visible line (before the closing fence if nothing is folded) or nil."
+  (when tf-ts-mode-max-block-lines
+    (save-excursion
+      (goto-char from)
+      (let* ((content (- (count-lines from last-eol) 2))
+             (hidden (- content tf-ts-mode-max-block-lines)))
+        (when (> hidden 0)
+          (forward-line (1+ tf-ts-mode-max-block-lines))
+          (let ((bol (point))
+                (width (tf-ts-mode--band-width)))
+            (end-of-line)
+            (let ((eol (point)))
+              (forward-line (1- hidden))
+              (end-of-line)
+              (let ((last (point)))
+                (tf-ts-mode--overlay
+                 bol eol 'display
+                 (propertize (format "... %d more line%s" hidden (if (= hidden 1) "" "s"))
+                             'face 'tf-ts-code-face))
+                (when (> last eol)
+                  (tf-ts-mode--overlay eol last 'invisible t))
+                (tf-ts-mode--overlay
+                 last last 'after-string
+                 (propertize " " 'face 'tf-ts-code-face 'display `(space :align-to ,width)))
+                (list bol last)))))))))
+
 (defun tf-ts-mode--update-folds (&optional buffer)
   "Shape the fenced blocks of BUFFER to the column limit, except the block at point.
 Lines past the limit are folded behind `...', shorter ones padded, so the band ends at
@@ -347,12 +382,16 @@ the ruler.  The block holding point is shown whole, its band running to the wind
               (if (and (>= pos from) (<= pos last-eol))
                   (tf-ts-mode--overlay from (min (point-max) (1+ last-eol))
                                        'face 'tf-ts-code-band-face)
-                (goto-char from)
-                (beginning-of-line)
-                (while more
-                  (let ((eol (line-end-position)))
-                    (tf-ts-mode--shape-line eol)
-                    (setq more (and (< eol last-eol) (zerop (forward-line 1))))))))))))))
+                (let ((folded (tf-ts-mode--fold-lines from last-eol)))
+                  (goto-char from)
+                  (beginning-of-line)
+                  (while more
+                    (let ((eol (line-end-position)))
+                      (if (and folded (= (point) (car folded)))
+                          (progn (goto-char (cadr folded)) ; skip the folded lines
+                                 (setq eol (line-end-position)))
+                        (tf-ts-mode--shape-line eol))
+                      (setq more (and (< eol last-eol) (zerop (forward-line 1)))))))))))))))
 
 (defvar-local tf-ts-mode--fold-timer nil)
 

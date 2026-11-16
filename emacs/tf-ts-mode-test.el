@@ -1072,3 +1072,45 @@ TITLES is the list of answers to the title question, in order."
 (provide 'tf-ts-mode-test)
 
 ;;; tf-ts-mode-test.el ends here
+
+(defun tf-ts-mode-test--long-block (n)
+  "A task with a fenced block of N numbered code lines."
+  (concat "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n"
+          (mapconcat (lambda (i) (format "          line%d" i)) (number-sequence 1 n) "\n")
+          "\n      ```\n\n  D : after\n"))
+
+(defun tf-ts-mode-test--line-fold (n point-on)
+  "Update the folds of a block of N lines with point after POINT-ON; the display strings."
+  (with-temp-buffer
+    (insert (tf-ts-mode-test--long-block n))
+    (tf-ts-mode)
+    (goto-char (point-min))
+    (search-forward point-on)
+    (tf-ts-mode--update-folds)
+    (mapcar (lambda (o) (overlay-get o 'display))
+            (tf-ts-mode-test--overlays 'display))))
+
+(ert-deftest tf-ts-mode-test-line-fold ()
+  (let ((tf-ts-mode-max-block-lines 10))
+    (should (equal (tf-ts-mode-test--line-fold 25 "after") '("... 15 more lines")))
+    (should (equal (tf-ts-mode-test--line-fold 11 "after") '("... 1 more line")))
+    (should-not (tf-ts-mode-test--line-fold 10 "after"))
+    ;; point inside the block: shown whole
+    (should-not (tf-ts-mode-test--line-fold 25 "line3"))
+    (let ((tf-ts-mode-max-block-lines nil))
+      (should-not (tf-ts-mode-test--line-fold 25 "after")))))
+
+(ert-deftest tf-ts-mode-test-line-fold-hides-lines ()
+  (with-temp-buffer
+    (insert (tf-ts-mode-test--long-block 25))
+    (tf-ts-mode)
+    (goto-char (point-max))
+    (tf-ts-mode--update-folds)
+    (let ((hidden (seq-find (lambda (o) (overlay-get o 'invisible))
+                            (tf-ts-mode-test--overlays 'invisible))))
+      (should hidden)
+      (goto-char (overlay-start hidden))
+      (should (looking-at "\n          line12"))
+      (should (equal (buffer-substring (line-beginning-position) (point)) "          line11"))
+      (goto-char (overlay-end hidden))
+      (should (looking-at "\n      ```")))))
