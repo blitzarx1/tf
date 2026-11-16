@@ -188,8 +188,11 @@ A command is typed by the owner and run by the agent. Rules for every command:
    `tasks.tfmd` from disk, even if you read them earlier in the session: the owner edits them
    between commands, so a remembered state is stale. Load every one in full (all sections) into
    context, so you know all the tasks and jobs of the closest `.tf` and of its children while
-   working the current one. Unless a flag names an item of a child (rule 5), tasks are worked
-   from the closest `.tf` only; an item is always edited in the `tasks.tfmd` that holds it.
+   working the current one. Compare the `.tf/VERSION` files of the closest `.tf`, its children and
+   the `.tf` folders above it; if they differ, say so once in one line, with the path to run
+   `.tf/update.sh` from, and go on (no `VERSION` file: no warning). Unless a flag names an item of
+   a child (rule 5), tasks are worked from the closest `.tf` only; an item is always edited in the
+   `tasks.tfmd` that holds it.
 2. Touch only the items the command works on. Keep the owner's wording and the other items as they
    are; reflow only to stay within the format. Never cancel an item (`~~...~~`) yourself.
    Edit a `tasks.tfmd` only after the owner explicitly approves that edit, since the owner may

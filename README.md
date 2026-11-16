@@ -32,6 +32,8 @@ One `.tf` serves every project below its folder (its home folder); a task says w
 - asks you to confirm or change the home folder (default: the folder you cloned into; set
   `TF_PROJECTS_DIR` to answer in advance) and moves `.tf` there if you change it; `$HOME` is fine;
 - turns `.tf` into a plain folder by deleting `.tf/.git`;
+- inside another tf tree (a `.tf` above), takes `skill/`, `VERSION` and `update.sh` from the nearest
+  one, offline, so the tree has one version (`TF_FRESH=1`: the clone's version instead);
 - copies `.tf/skill` as the `tf` skill to `.claude/skills/tf` and `.agents/skills/tf` in the
   home folder only (start the agent there or below it to use `/tf`);
 - adds `@.tf/skill/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`; agents started in a
@@ -109,7 +111,8 @@ refers to the `.tf` of the task, which stays the source of truth.
 ```
 
 Run it from the home folder, or from a folder below it as `../.tf/update.sh` (it updates the
-`.tf` next to itself and prints the home folder). It replaces `skill/`, `VERSION` and
+`.tf` next to itself and every `.tf` below its home folder, so the subtree has one version; a `.tf`
+above is only reported when its version differs, and so does the agent on every `tf`). It replaces `skill/`, `VERSION` and
 `update.sh` with the latest versions and prints the version change. It never touches
 `tasks.tfmd`.
 

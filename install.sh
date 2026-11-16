@@ -3,7 +3,8 @@
 # from the directory to use, right after cloning:
 #   git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
 # It asks to confirm or change the home folder (default: where .tf was cloned; set
-# TF_PROJECTS_DIR to answer in advance). Safe to run again: every step checks first.
+# TF_PROJECTS_DIR to answer in advance). Inside another tf tree it takes the version of the nearest
+# .tf above (TF_FRESH=1: the clone's). Safe to run again: every step checks first.
 set -euo pipefail
 
 tf_dir="$(cd "$(dirname "$0")" && pwd)"
@@ -52,6 +53,23 @@ echo "home folder: $root"
 # read from git first, while .tf/.git is still there.
 [ -d .tf/.git ] && write_version .tf .tf/VERSION
 rm -rf .tf/.git
+
+# Inside a tf tree the nearest .tf above takes the lead: skill, VERSION and update.sh come from it,
+# offline, so the tree has one version. TF_FRESH=1 keeps the version of the clone instead.
+ancestor=""
+dir="$root"
+while [ -z "$ancestor" ] && [ "$dir" != "/" ]; do
+	dir="$(dirname "$dir")"
+	[ -f "$dir/.tf/tasks.tfmd" ] && ancestor="$dir/.tf"
+done
+if [ -n "$ancestor" ] && [ -z "${TF_FRESH:-}" ] && [ -d "$ancestor/skill" ]; then
+	rm -rf .tf/skill && cp -R "$ancestor/skill" .tf/skill
+	cp "$ancestor/VERSION" .tf/VERSION 2>/dev/null || true
+	cp "$ancestor/update.sh" .tf/update.sh 2>/dev/null || true
+	echo "version $(show_version .tf/VERSION), from $ancestor"
+elif [ -n "$ancestor" ] && [ "$(show_version "$ancestor/VERSION")" != "$(show_version .tf/VERSION)" ]; then
+	echo "note: $ancestor is at $(show_version "$ancestor/VERSION"); run $ancestor/update.sh to match" >&2
+fi
 
 # .tf/skill holds SKILL.md at its root, so that folder is the skill. It is copied (not linked) to
 # where the agents look for skills; an old symlink there is replaced by the copy.

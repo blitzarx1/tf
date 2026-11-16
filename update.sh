@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Updates tf in place. Run it as .tf/update.sh from the home folder (the folder that holds
-# .tf), or from any folder below it as ../.tf/update.sh: it works on the .tf next to itself.
-# Replaces skill/ (AGENTS.md, SKILL.md, base.md), VERSION and this script with the latest versions,
-# then refreshes the copies of skill/ in .claude/skills/tf and .agents/skills/tf.
+# Updates tf in place: the .tf next to this script and every .tf below its home folder (the folder
+# that holds it), so the whole subtree gets one version. Run it as .tf/update.sh from the home
+# folder, or from any folder below it as ../.tf/update.sh.
+# Replaces skill/ (AGENTS.md, SKILL.md, base.md), VERSION and update.sh with the latest versions,
+# then refreshes the copies of skill/ in .claude/skills/tf and .agents/skills/tf of each home
+# folder. A .tf above it (an ancestor) is only reported when its version differs.
 # Never touches tasks.tfmd: your tasks stay as they are.
 set -euo pipefail
 
@@ -36,40 +38,65 @@ trap 'rm -rf "$tmp"' EXIT
 # No --depth: describe needs the tags and history (blobs of old versions are still skipped).
 git clone -q --filter=blob:none "$repo" "$tmp/tf"
 write_version "$tmp/tf" "$tmp/tf/VERSION"
-old="$(show_version .tf/VERSION)"
 new="$(show_version "$tmp/tf/VERSION")"
 
-# Each file is replaced by a rename, never rewritten in place: bash is still reading this script.
-mkdir -p .tf/skill
-for f in skill/base.md skill/AGENTS.md skill/SKILL.md VERSION update.sh; do
-	if cmp -s "$tmp/tf/$f" ".tf/$f"; then
-		echo "  $f: unchanged"
-	else
-		cp "$tmp/tf/$f" ".tf/$f.new" && mv ".tf/$f.new" ".tf/$f"
-		echo "  $f: updated"
-	fi
-done
-chmod +x .tf/update.sh
+# find_tfs DIR: the home folders of the .tf folders in DIR and below (DIR first), skipping .git,
+# .tf-worktrees and dependency folders, like the agent does.
+find_tfs() {
+	find "$1" \( -name .git -o -name .tf-worktrees -o -name node_modules -o -name vendor \) -prune \
+		-o -type f -path '*/.tf/tasks.tfmd' -print | sed 's|/\.tf/tasks\.tfmd$||' | sort
+}
 
-# Refresh the copies of the skill (an old symlink there is replaced by the copy).
-for dir in .claude/skills .agents/skills; do
-	mkdir -p "$dir"
-	if [ -L "$dir/tf" ]; then
-		status="symlink replaced by a copy"
-	elif [ ! -e "$dir/tf" ]; then
-		status="created"
-	elif diff -rq .tf/skill "$dir/tf" > /dev/null; then
-		echo "  $dir/tf: unchanged"
-		continue
+# update_one HOME: updates the .tf in HOME and the copies of its skill.
+update_one() {
+	local home="$1" f dir status old
+	old="$(show_version "$home/.tf/VERSION")"
+	mkdir -p "$home/.tf/skill"
+	# Each file is replaced by a rename, never rewritten in place: bash may be reading it.
+	for f in skill/base.md skill/AGENTS.md skill/SKILL.md VERSION update.sh; do
+		if cmp -s "$tmp/tf/$f" "$home/.tf/$f"; then
+			echo "    $f: unchanged"
+		else
+			cp "$tmp/tf/$f" "$home/.tf/$f.new" && mv "$home/.tf/$f.new" "$home/.tf/$f"
+			echo "    $f: updated"
+		fi
+	done
+	chmod +x "$home/.tf/update.sh"
+	# Refresh the copies of the skill (an old symlink there is replaced by the copy).
+	for dir in .claude/skills .agents/skills; do
+		mkdir -p "$home/$dir"
+		if [ -L "$home/$dir/tf" ]; then
+			status="symlink replaced by a copy"
+		elif [ ! -e "$home/$dir/tf" ]; then
+			status="created"
+		elif diff -rq "$home/.tf/skill" "$home/$dir/tf" > /dev/null; then
+			echo "    $dir/tf: unchanged"
+			continue
+		else
+			status="updated"
+		fi
+		rm -rf "$home/$dir/tf"
+		cp -R "$home/.tf/skill" "$home/$dir/tf"
+		echo "    $dir/tf: $status"
+	done
+	if [ "$old" = "$new" ]; then
+		echo "  $home/.tf: $new (already up to date)"
 	else
-		status="updated"
+		echo "  $home/.tf: updated $old -> $new"
 	fi
-	rm -rf "$dir/tf"
-	cp -R .tf/skill "$dir/tf"
-	echo "  $dir/tf: $status"
+}
+
+while IFS= read -r home; do
+	echo "$home/.tf:"
+	update_one "$home"
+done < <(find_tfs "$root")
+
+# Ancestors are not touched, only reported when their version differs.
+dir="$root"
+while [ "$dir" != "/" ]; do
+	dir="$(dirname "$dir")"
+	if [ -f "$dir/.tf/tasks.tfmd" ] && [ "$(show_version "$dir/.tf/VERSION")" != "$new" ]; then
+		echo "note: $dir/.tf is at $(show_version "$dir/.tf/VERSION"); run $dir/.tf/update.sh"
+	fi
 done
-if [ "$old" = "$new" ]; then
-	echo "tf $new (already up to date)."
-else
-	echo "tf updated: $old -> $new."
-fi
+echo "tf $new in $root and the .tf folders below it."
