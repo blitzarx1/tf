@@ -173,12 +173,15 @@ sit on any level, and the closest one to the work is the one worked. A task's `/
 project, relative to the home folder of the `.tf` that holds the task; a task that needs several
 projects, or none in particular, has no `/ :`.
 
-* One project: the agent finds it in the home folder. If it is not there, it asks the owner
-  for the git clone link, clones it into the home folder and works inside that folder.
-* Several projects: the agent makes sure `.tf-worktrees` exists in the home folder, creates
-  in it a folder named from the task title (lowercase words joined by `-`) and clones the projects
-  it needs into that folder; the code is changed there. The folder's path is recorded in an `A : `
-  note of the task.
+* Any task that changes files of a project (one or several) is worked only in `.tf-worktrees`,
+  never in the project folder of the home folder, which the agent does not modify. The agent makes
+  sure `.tf-worktrees` exists in the home folder, creates in it a folder named from the task title
+  (lowercase words joined by `-`) and clones each project it needs into that folder, as
+  `<task folder>/<project>/`; the code is changed there. The clone link is the `origin` of the
+  project in the home folder; if there is none, or the project is not in the home folder, the agent
+  asks the owner for it. The folder's path is recorded in an `A : ` note of the task.
+* Not covered: edits of `tasks.tfmd` and the other files of a `.tf` (bookkeeping), and work that
+  changes no project file (a question, type `q`).
 * `summary.tfmd` in a worktree folder is only for the owner: a reader's summary. It starts with a
   disclaimer that it is a reference to the `.tf` that holds the task, then mirrors, in `tasks.tfmd`
   format, the tasks that worked in that worktree (those whose `A : ` note names its folder). The
@@ -300,11 +303,10 @@ Built-in commands:
          ask (rule 2) to record the answer; on approval add an `A : ` field with the short
          answer, mark the item `[x]` and move it to the top of `# done`.
       3. Task, bug or job (type `t`, `b` or `j`; find the root cause of a bug first): its `D : `
-         and `C : ` fields are the spec (`A : ` holds earlier agent notes). The work happens in
-         the folder of its `/ :` (relative to the home folder; the home folder itself without
-         one); if the task needs a project that is not in the home folder, or several projects,
-         follow `## projects` (which project or projects it needs is part of the plan). Plan
-         (plan mode, rule 3) the implementation and ask about anything they leave open;
+         and `C : ` fields are the spec (`A : ` holds earlier agent notes). Project files are
+         changed only in the task's worktree folder (`## projects`; which project or projects it
+         needs, from its `/ :` or the spec, is part of the plan).
+         Plan (plan mode, rule 3) the implementation and ask about anything they leave open;
          implement only after the owner approves the plan. For a job, doing the work includes
          drafting or refining its `J : ` instructions so the next run can follow them.
       4. Epic (type `e`, state `[ ]`, no task tagged `e<id>` yet): plan (plan mode, rule 3) a
@@ -338,9 +340,9 @@ Built-in commands:
          closed as step 1 says. Later follow-ups (rule 6) keep the last choice unless the owner
          says otherwise.
 
-         If the task was worked in a worktree (`## projects`), the options also cover creating or
-         updating `summary.tfmd` in the worktree folder; it is a file outside `tasks.tfmd`,
-         written after the item is closed, and only when chosen.
+         If the task changed code, it was worked in a worktree (`## projects`): the options also
+         cover creating or updating `summary.tfmd` in the worktree folder; it is a file outside
+         `tasks.tfmd`, written after the item is closed, and only when chosen.
          Writing it adds or refreshes the `R : ` field of the closed task (`## projects`).
       6. Run a job (`-j <ref>`): the job is in `# jobs`; read its `J : ` and the `A : ` and `C : `
          notes. Take the values of its parameters from the text the owner gave after the job's

@@ -98,9 +98,9 @@ the first open task of a split epic.
 ## Projects
 
 One `.tf` can serve many projects; `.tf` folders can also be nested: `tf` works the closest one
-(`-t`/`-j` may also name an item of a `.tf` below it). A task's `/ ` line names its project; the agent works in that
-folder, finds it in the home folder or asks for its git clone link. A task that needs
-several projects gets a folder in `.tf-worktrees` (in the home folder) with a clone of each,
+(`-t`/`-j` may also name an item of a `.tf` below it). A task's `/ ` line names its project. Code is never changed in the project folder: every task that changes project files gets a
+folder in `.tf-worktrees` (in the home folder) with a fresh clone of each project it needs
+(`<task folder>/<project>/`, link from the project's `origin`, or the agent asks for it),
 and afterwards the agent offers to write a `summary.tfmd` there: a reader's summary that only
 refers to the `.tf` of the task, which stays the source of truth.
 
