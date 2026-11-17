@@ -110,6 +110,7 @@ refers to the `.tf` of the task, which stays the source of truth.
 .tf/update.sh
 ```
 
+It is the general update, for agent instructions only; integrations have their own (Emacs: `emacs/update-grammar.sh`).
 Run it from the home folder, or from a folder below it as `../.tf/update.sh` (it updates the
 `.tf` next to itself and every `.tf` below its home folder, so the subtree has one version; a `.tf`
 above is only reported when its version differs, and so does the agent on every `tf`). It replaces `skill/`, `VERSION` and
@@ -118,7 +119,8 @@ above is only reported when its version differs, and so does the agent on every 
 
 ## Emacs
 
-`emacs/tf-ts-mode.el` is a major mode for `.tfmd` files (needs the `tree-sitter-tfmd` grammar).
+`emacs/tf-ts-mode.el` is a major mode for `.tfmd` files (needs the `tree-sitter-tfmd` grammar: build and install it with `emacs/update-grammar.sh`, and again after
+each `package-vc-upgrade` that changes the grammar; `C-c C-u` does it too).
 Keys, all under `C-c C-`:
 
 | Key | Does |
@@ -132,7 +134,7 @@ Keys, all under `C-c C-`:
 | `s` | split the task into subtasks (asks for titles until an empty one); it becomes an epic `- [<n>]` |
 | `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog. An epic moves with its subtasks when they share a stage; with some open and some not, nothing moves; the epic's `<n>` follows its subtasks |
 | `C-c SPC` / `C-c S-SPC` | separator below / above the task |
-| `u` | run `.tf/update.sh` after a confirmation |
+| `u` | after a confirmation, run `.tf/update.sh` (the agent instructions) and `emacs/update-grammar.sh` (rebuilds the `tfmd` grammar for Emacs; also runnable by hand) |
 | `i` | show the task's id as a date (also shown by eldoc on the id line) |
 
 Typing `. `, `/ `, `! `, `; ` or `: ` on a header line moves it to its place in the header. A

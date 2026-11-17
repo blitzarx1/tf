@@ -581,19 +581,31 @@
           (should-not started))
       (delete-directory root t))))
 
-(ert-deftest tf-ts-mode-test-update-confirmed ()
+(defun tf-ts-mode-test--run-update (grammar)
+  "Run `tf-ts-mode-update' in a temp project with `tf-ts-mode--grammar-script' returning GRAMMAR.
+Return the command it started."
   (let* ((root (tf-ts-mode-test--project t))
          (default-directory (file-name-as-directory root))
-         (command nil) (dir nil))
+         (command nil))
     (unwind-protect
         (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                  ((symbol-function 'tf-ts-mode--grammar-script) (lambda () grammar))
                   ((symbol-function 'compilation-start)
-                   (lambda (c &rest _) (setq command c dir default-directory))))
+                   (lambda (c &rest _)
+                     (setq command c)
+                     (should (equal (file-truename default-directory)
+                                    (file-name-as-directory (file-truename root)))))))
           (tf-ts-mode-update)
-          (should (equal command ".tf/update.sh"))
-          (should (equal (file-truename dir) (file-name-as-directory (file-truename root)))))
+          command)
       (remove-hook 'compilation-finish-functions #'tf-ts-mode--after-update)
       (delete-directory root t))))
+
+(ert-deftest tf-ts-mode-test-update-confirmed ()
+  (should (equal (tf-ts-mode-test--run-update "/x/update-grammar.sh")
+                 ".tf/update.sh && /x/update-grammar.sh")))
+
+(ert-deftest tf-ts-mode-test-update-without-grammar-script ()
+  (should (equal (tf-ts-mode-test--run-update nil) ".tf/update.sh")))
 
 (defun tf-ts-mode-test--type (string)
   "Type STRING at point as self-inserting keys."

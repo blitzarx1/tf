@@ -7,7 +7,8 @@
 ;;; Commentary:
 
 ;; Major mode for `.tfmd' files (the tf task list format) built on the `tfmd' tree-sitter grammar
-;; from `tree-sitter-tfmd/'.  Install the grammar first:
+;; from `tree-sitter-tfmd/'.  Install the grammar first with `emacs/update-grammar.sh' (builds it
+;; with `cc'; `C-c C-u' runs it again later), or from Emacs:
 ;;
 ;;   (add-to-list 'treesit-language-source-alist
 ;;                '(tfmd "https://github.com/blitzarx1/tf" nil "tree-sitter-tfmd"))
@@ -35,7 +36,8 @@
 ;;   v                     move the task one stage on: backlog, todo, done, cancelled, backlog
 ;;                         (an epic moves with its subtasks, or refuses; see
 ;;                         `tf-ts-mode-advance-task')
-;;   u                     run `.tf/update.sh' (after a confirmation)
+;;   u                     run `.tf/update.sh' and `update-grammar.sh' (rebuilds the grammar),
+;;                         after a confirmation
 ;;   i                     show the id of the task as an RFC3339 UTC date (eldoc does the same
 ;;                         with point on the id line)
 ;;   h / l                 raise / lower the priority of the task by 10 (0 to 100)
@@ -1212,17 +1214,31 @@ and with the epic's path and tags.  Any open task can be split; a split epic get
               (message "tf: %s has unsaved changes, not reverted" (buffer-name))
             (revert-buffer t t t)))))))
 
+(defun tf-ts-mode--grammar-script ()
+  "The executable `update-grammar.sh' next to this library, or nil."
+  (let* ((lib (or load-file-name (locate-library "tf-ts-mode")))
+         (script (and lib (expand-file-name "update-grammar.sh" (file-name-directory lib)))))
+    (and script (file-executable-p script) script)))
+
 (defun tf-ts-mode-update ()
-  "After a confirmation, run `.tf/update.sh' of the project and show its output."
+  "After a confirmation, run `.tf/update.sh' of the project and `update-grammar.sh'.
+`.tf/update.sh' updates the agent instructions; `update-grammar.sh' rebuilds the `tfmd' grammar
+for Emacs.  The output is shown in the `*tf update*' buffer."
   (interactive)
   (let* ((root (or (locate-dominating-file default-directory ".tf/tasks.tfmd")
                    (user-error "No .tf/tasks.tfmd in this or a parent directory")))
-         (script (expand-file-name ".tf/update.sh" root)))
+         (script (expand-file-name ".tf/update.sh" root))
+         (grammar (tf-ts-mode--grammar-script)))
     (unless (file-executable-p script) (user-error "No executable %s" script))
-    (when (yes-or-no-p (format "Run %s? " script))
+    (unless grammar
+      (message "tf: no update-grammar.sh next to tf-ts-mode, the grammar is not rebuilt"))
+    (when (yes-or-no-p (format "Run %s? " (if grammar (format "%s and %s" script grammar) script)))
       (let ((default-directory root))
         (add-hook 'compilation-finish-functions #'tf-ts-mode--after-update)
-        (compilation-start ".tf/update.sh" nil (lambda (_) "*tf update*"))))))
+        (compilation-start (if grammar
+                               (format ".tf/update.sh && %s" (shell-quote-argument grammar))
+                             ".tf/update.sh")
+                           nil (lambda (_) "*tf update*"))))))
 
 ;;;; Typing helpers
 
