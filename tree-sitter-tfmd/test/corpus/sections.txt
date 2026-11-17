@@ -427,3 +427,52 @@ project path property
       (stray_property
         (stray_marker)
         (text)))))
+
+================================================================================:sep
+references field is last
+================================================================================:sep
+
+# todo
+
+- [ ] a
+    . 1
+
+  D : d
+
+  R :
+
+      * dir/x.go:12
+      * dir/x.go:12:3: text
+      * nonsense
+
+  C : late
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (id
+        (id_marker)
+        (id_value))
+      (field
+        (field_label)
+        (field_text))
+      (ref_field
+        (ref_label)
+        (ref_item
+          (list_marker)
+          (ref))
+        (ref_item
+          (list_marker)
+          (ref))
+        (bad_ref
+          (list_marker)
+          (text)))
+      (stray_field
+        (stray_label)
+        (field_text)))))

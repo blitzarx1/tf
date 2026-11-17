@@ -189,6 +189,31 @@
       (dolist (l (nthcdr 5 lines))
         (when (> (length l) 0) (should (string-prefix-p "      " l)))))))
 
+(ert-deftest tf-ts-mode-test-refs-last-and-jump ()
+  (let* ((dir (make-temp-file "tfref" t))
+         (file (expand-file-name "tasks.tfmd" dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "x.txt" dir) (insert "a\nb\nc\n"))
+          (with-temp-buffer
+            (insert "# todo\n\n- [ ] t\n    . 1\n\n  D : d\n\n  R :\n\n      * x.txt:2\n")
+            (setq buffer-file-name file)
+            (tf-ts-mode)
+            (should-not (string-match-p "stray\\|bad_ref\\|ERROR"
+                                        (treesit-node-string (treesit-buffer-root-node 'tfmd))))
+            (goto-char (point-max))
+            (forward-line -1)
+            (should (equal (tf-ts-mode--ref-at-point) "x.txt:2"))
+            (let ((xref (car (xref-backend-definitions 'tf-ts-refs "x.txt:2"))))
+              (should (= 2 (xref-file-location-line (xref-item-location xref)))))
+            (set-buffer-modified-p nil))
+          (with-temp-buffer
+            (insert "# todo\n\n- [ ] t\n    . 1\n\n  R :\n\n      * x.txt:2\n\n  D : late\n")
+            (tf-ts-mode)
+            (should (string-match-p "stray_field"
+                                    (treesit-node-string (treesit-buffer-root-node 'tfmd))))))
+      (delete-directory dir t))))
+
 (ert-deftest tf-ts-mode-test-next-previous-task ()
   (tf-ts-mode-test--with-buffer tf-ts-mode-test--sample
     (goto-char (point-min))
@@ -1087,8 +1112,11 @@ TITLES is the list of answers to the title question, in order."
     (goto-char (point-min))
     (search-forward point-on)
     (tf-ts-mode--update-folds)
-    (mapcar (lambda (o) (overlay-get o 'display))
-            (tf-ts-mode-test--overlays 'display))))
+    (delq nil
+          (mapcar (lambda (o)
+                    (let ((s (substring-no-properties (overlay-get o 'after-string))))
+                      (and (string-match "\\`\\.\\.\\. [0-9]+ more lines?" s) (match-string 0 s))))
+                  (tf-ts-mode-test--overlays 'after-string)))))
 
 (ert-deftest tf-ts-mode-test-line-fold ()
   (let ((tf-ts-mode-max-block-lines 10))
@@ -1110,7 +1138,36 @@ TITLES is the list of answers to the title question, in order."
                             (tf-ts-mode-test--overlays 'invisible))))
       (should hidden)
       (goto-char (overlay-start hidden))
-      (should (looking-at "\n          line12"))
-      (should (equal (buffer-substring (line-beginning-position) (point)) "          line11"))
+      (should (looking-at "          line11\n"))
       (goto-char (overlay-end hidden))
       (should (looking-at "\n      ```")))))
+
+(ert-deftest tf-ts-mode-test-line-fold-blank-first-hidden-line ()
+  "The marker shows although the first hidden line is blank."
+  (let ((tf-ts-mode-max-block-lines 2))
+    (with-temp-buffer
+      (insert "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n          a\n\n          b\n"
+              "\n          c\n      ```\n\n  D : after\n")
+      (tf-ts-mode)
+      (goto-char (point-max))
+      (tf-ts-mode--update-folds)
+      (should (equal (seq-filter (lambda (s) (string-prefix-p "..." s))
+                                 (mapcar (lambda (o) (substring-no-properties
+                                                      (overlay-get o 'after-string)))
+                                         (tf-ts-mode-test--overlays 'after-string)))
+                     '("... 3 more lines "))))))
+
+(ert-deftest tf-ts-mode-test-folded-block-has-no-indent-warning ()
+  "Lines hidden by a fold are not flagged as misindented."
+  (with-temp-buffer
+    (insert (tf-ts-mode-test--long-block 25))
+    (tf-ts-mode)
+    (goto-char (point-max))
+    (tf-ts-mode--update-folds)
+    (font-lock-flush)
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (while (not (eobp))
+      (let ((face (get-text-property (line-beginning-position) 'face)))
+        (should-not (memq 'font-lock-warning-face (if (listp face) face (list face)))))
+      (forward-line 1))))

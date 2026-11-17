@@ -1,5 +1,24 @@
 [
   {
+    "type": "bad_ref",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "list_marker",
+          "named": true
+        },
+        {
+          "type": "text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "code_block",
     "named": true,
     "fields": {},
@@ -169,6 +188,56 @@
     "fields": {}
   },
   {
+    "type": "ref_field",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "bad_ref",
+          "named": true
+        },
+        {
+          "type": "field_text",
+          "named": true
+        },
+        {
+          "type": "invalid",
+          "named": true
+        },
+        {
+          "type": "ref_item",
+          "named": true
+        },
+        {
+          "type": "ref_label",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "ref_item",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "list_marker",
+          "named": true
+        },
+        {
+          "type": "ref",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "separator_line",
     "named": true,
     "fields": {},
@@ -198,6 +267,41 @@
       "types": [
         {
           "type": "task_section",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "stray_field",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "code_block",
+          "named": true
+        },
+        {
+          "type": "field_text",
+          "named": true
+        },
+        {
+          "type": "invalid",
+          "named": true
+        },
+        {
+          "type": "list_item",
+          "named": true
+        },
+        {
+          "type": "stray_label",
+          "named": true
+        },
+        {
+          "type": "text_line",
           "named": true
         }
       ]
@@ -267,6 +371,14 @@
         },
         {
           "type": "priority",
+          "named": true
+        },
+        {
+          "type": "ref_field",
+          "named": true
+        },
+        {
+          "type": "stray_field",
           "named": true
         },
         {
@@ -474,6 +586,14 @@
     "named": true
   },
   {
+    "type": "ref",
+    "named": true
+  },
+  {
+    "type": "ref_label",
+    "named": true
+  },
+  {
     "type": "separator",
     "named": true
   },
@@ -491,6 +611,10 @@
   },
   {
     "type": "state_split",
+    "named": true
+  },
+  {
+    "type": "stray_label",
     "named": true
   },
   {

@@ -46,6 +46,8 @@
 ;; and fenced blocks get a background.  A fenced block's band ends at column 100 and the text past
 ;; it is hidden (shown as `...') until point enters the block, which shows whole with its
 ;; band running to the window edge; see `tf-ts-mode-hide-overflow'.
+;; An `R :' field holds references, a list of `path:line' items relative to the file, and is the
+;; last field of a task (a field after it is a warning).  `M-.' on a reference jumps to it.
 ;; The label of a `C :' field (the owner's), from the line start to the `:', has a pastel yellow
 ;; background, that of an `A :' field (the agent's) a pastel blue one, that of a `J :' field (job
 ;; instructions) a pastel green one.
@@ -97,6 +99,10 @@ It keeps the buffer's font, so a character fills one grid cell and lines end at 
   '((((background light)) :background "#e0f5e0")
     (((background dark)) :background "#223a26"))
   "Face for the labels of `J :' fields (job instructions): a pastel green background.")
+(defface tf-ts-ref-face
+  '((((background light)) :background "#f0e6f6")
+    (((background dark)) :background "#33283d"))
+  "Face for the label of `R :' fields (references): a pastel purple background.")
 (defface tf-ts-code-band-face
   '((t :inherit tf-ts-code-face :extend t))
   "Face for the fenced block at point: its band runs to the right edge of the window.")
@@ -167,6 +173,10 @@ Nil: never fold lines.  Like the hidden overflow, the block at point is shown wh
    :language 'tfmd :feature 'field
    '((field_label) @font-lock-keyword-face)
 
+   :language 'tfmd :feature 'field
+   '((ref_label) @font-lock-keyword-face
+     (ref) @font-lock-string-face)
+
    :language 'tfmd :feature 'list
    '((list_marker) @font-lock-builtin-face)
 
@@ -177,7 +187,9 @@ Nil: never fold lines.  Like the hidden overflow, the block at point is shown wh
 
    :language 'tfmd :feature 'error
    '((invalid) @font-lock-warning-face
-     (stray_property) @font-lock-warning-face))
+     (stray_property) @font-lock-warning-face
+     (stray_field) @font-lock-warning-face
+     (bad_ref) @font-lock-warning-face))
   "Tree-sitter font-lock rules for `tf-ts-mode'.")
 
 (defvar tf-ts-mode--inline-code-settings
@@ -229,6 +241,19 @@ FIRST is the beginning of the label's line and LAST the position after the `:' o
           (search-forward ":" (treesit-node-end label) t)
           (list face first (point)))))))
 
+(defun tf-ts-mode--fontify-ref-labels (limit)
+  "Paint the label of every `R :' field up to LIMIT."
+  (let ((beg (point)))
+    (dolist (label (treesit-query-capture (treesit-buffer-root-node 'tfmd)
+                                          '((ref_label) @l) beg limit t))
+      (save-excursion
+        (goto-char (treesit-node-start label))
+        (let ((first (line-beginning-position)))
+          (search-forward ":" (treesit-node-end label) t)
+          (add-face-text-property first (point) 'tf-ts-ref-face t))))
+    (goto-char limit)
+    nil))
+
 (defun tf-ts-mode--fontify-fields (limit)
   "Paint the label of every `C :', `A :' and `J :' field up to LIMIT, from the line start to `:'."
   (let ((beg (point)))
@@ -240,6 +265,15 @@ FIRST is the beginning of the label's line and LAST the position after the `:' o
     (goto-char limit)
     nil))
 
+(defun tf-ts-mode--text-indent ()
+  "Indentation of the current line counted from its text.
+Unlike `current-indentation' it ignores overlays: a line hidden by a fold is not 0."
+  (save-excursion
+    (beginning-of-line)
+    (let ((bol (point)))
+      (skip-chars-forward " \t")
+      (- (point) bol))))
+
 (defun tf-ts-mode--fontify-code-indent (limit)
   "Warn about misindented lines of fenced blocks up to LIMIT.
 A code line is at least 4 columns deeper than the opening fence, the closing fence is at its
@@ -248,17 +282,16 @@ column."
     (dolist (block (treesit-query-capture (treesit-buffer-root-node 'tfmd)
                                           '((code_block) @block) beg limit t))
       (let* ((open (tf-ts-mode--child block "fence_open"))
-             (col (and open (tf-ts-mode--column-at (save-excursion
-                                                      (goto-char (treesit-node-start open))
-                                                      (back-to-indentation)
-                                                      (point))))))
+             (col (and open (save-excursion
+                              (goto-char (treesit-node-start open))
+                              (tf-ts-mode--text-indent)))))
         (when col
           (dolist (node (treesit-node-children block))
             (let ((type (treesit-node-type node)))
               (when (member type '("code_line" "fence_close"))
                 (save-excursion
                   (goto-char (treesit-node-start node))
-                  (let ((indent (current-indentation)))
+                  (let ((indent (tf-ts-mode--text-indent)))
                     (when (if (equal type "code_line") (< indent (+ col 4)) (/= indent col))
                       (add-face-text-property (line-beginning-position) (line-end-position)
                                               'font-lock-warning-face))))))))))
@@ -293,11 +326,44 @@ column."
 The band comes first so the overflow rule can see it: text past the limit, trailing space, tabs."
   `((tf-ts-mode--fontify-code-blocks)
     (tf-ts-mode--fontify-fields)
+    (tf-ts-mode--fontify-ref-labels)
     (tf-ts-mode--fontify-code-indent)
     (tf-ts-mode--fontify-title-fences)
     (tf-ts-mode--fontify-overflow 1 'tf-ts-overflow-face t)
     ("[ \t]+$" 0 'trailing-whitespace t)
     ("\t" 0 'tf-ts-tab-face t)))
+
+;;;; References (`R :')
+
+(require 'xref)
+
+(defconst tf-ts-mode--ref-regexp "\\([^:\n]+\\):\\([0-9]+\\)\\(?::\\([0-9]+\\)\\)?"
+  "A reference `path:line' or `path:line:col', as `grep -n' and vimgrep print it.")
+
+(defun tf-ts-mode--ref-at-point ()
+  "The reference string of the `R :' list item at point, or nil."
+  (when-let* ((node (treesit-node-at (max (tf-ts-mode--first-char) (1- (line-end-position))) 'tfmd))
+              ((equal (treesit-node-type node) "ref")))
+    (treesit-node-text node t)))
+
+(defun tf-ts-mode--xref-backend ()
+  "Xref backend of `tf-ts-mode': `M-.' on a reference of an `R :' field jumps to it."
+  (and (tf-ts-mode--ref-at-point) 'tf-ts-refs))
+
+(cl-defmethod xref-backend-identifier-at-point ((_backend (eql tf-ts-refs)))
+  (tf-ts-mode--ref-at-point))
+
+(cl-defmethod xref-backend-identifier-completion-table ((_backend (eql tf-ts-refs)))
+  nil)
+
+(cl-defmethod xref-backend-definitions ((_backend (eql tf-ts-refs)) ref)
+  (unless (string-match tf-ts-mode--ref-regexp ref) (user-error "Not a reference: %s" ref))
+  (let* ((file (expand-file-name (match-string 1 ref)
+                                 (file-name-directory (or buffer-file-name default-directory))))
+         (line (string-to-number (match-string 2 ref)))
+         (col (if (match-string 3 ref) (max 0 (1- (string-to-number (match-string 3 ref)))) 0)))
+    (unless (file-exists-p file) (user-error "No such file: %s" file))
+    (list (xref-make ref (xref-make-file-location file line col)))))
 
 ;;;; Hidden overflow
 
@@ -347,21 +413,19 @@ Return the end of the last visible line (before the closing fence if nothing is 
           (forward-line (1+ tf-ts-mode-max-block-lines))
           (let ((bol (point))
                 (width (tf-ts-mode--band-width)))
+            (forward-line (1- hidden))
             (end-of-line)
-            (let ((eol (point)))
-              (forward-line (1- hidden))
-              (end-of-line)
-              (let ((last (point)))
-                (tf-ts-mode--overlay
-                 bol eol 'display
-                 (propertize (format "... %d more line%s" hidden (if (= hidden 1) "" "s"))
-                             'face 'tf-ts-code-face))
-                (when (> last eol)
-                  (tf-ts-mode--overlay eol last 'invisible t))
-                (tf-ts-mode--overlay
-                 last last 'after-string
-                 (propertize " " 'face 'tf-ts-code-face 'display `(space :align-to ,width)))
-                (list bol last)))))))))
+            (let ((last (point)))
+              ;; the marker is the after-string at LAST, since a `display' overlay over a blank
+              ;; first hidden line would be empty and show nothing
+              (when (> last bol)
+                (tf-ts-mode--overlay bol last 'invisible t))
+              (tf-ts-mode--overlay
+               last last 'after-string
+               (concat (propertize (format "... %d more line%s" hidden (if (= hidden 1) "" "s"))
+                                   'face 'tf-ts-code-face)
+                       (propertize " " 'face 'tf-ts-code-face 'display `(space :align-to ,width))))
+              (list bol last))))))))
 
 (defun tf-ts-mode--update-folds (&optional buffer)
   "Shape the fenced blocks of BUFFER to the column limit, except the block at point.
@@ -411,11 +475,12 @@ the ruler.  The block holding point is shown whole, its band running to the wind
 ;;;; Tree helpers
 
 (defconst tf-ts-mode--containers
-  '("source_file" "task_section" "task" "field" "code_block" "separator_line")
+  '("source_file" "task_section" "task" "field" "ref_field" "stray_field" "code_block" "separator_line")
   "Node types that span several lines; the line-level node is the child below one of them.")
 
 (defconst tf-ts-mode--field-types
-  '("field_label" "text_line" "list_item" "fence_open" "fence_close" "code_line")
+  '("field_label" "ref_label" "stray_label" "text_line" "list_item" "ref_item" "bad_ref"
+    "fence_open" "fence_close" "code_line")
   "Line kinds that belong to the body of a field.")
 
 (defconst tf-ts-mode--header-types
@@ -455,14 +520,16 @@ Returns nil for NODE nil."
       (cond
        ((equal type "task_header")
         (tf-ts-mode--column-at (treesit-node-start (tf-ts-mode--child node "title"))))
-       ((member type '("title_continuation" "text_line" "list_item"))
+       ((member type '("title_continuation" "text_line" "list_item" "bad_ref"))
         (tf-ts-mode--column-at (treesit-node-start (tf-ts-mode--child node "text"))))
-       ((equal type "field_label") 6)
+       ((equal type "ref_item")
+        (tf-ts-mode--column-at (treesit-node-start (tf-ts-mode--child node "ref"))))
+       ((member type '("field_label" "ref_label" "stray_label")) 6)
        ((member type '("id" "priority" "type" "tags")) 2)
        ((equal type "fence_open")
-        (+ 4 (save-excursion (goto-char (treesit-node-start node)) (current-indentation))))
+        (+ 4 (save-excursion (goto-char (treesit-node-start node)) (tf-ts-mode--text-indent))))
        ((equal type "code_line")
-        (save-excursion (goto-char (treesit-node-start node)) (current-indentation)))
+        (save-excursion (goto-char (treesit-node-start node)) (tf-ts-mode--text-indent)))
        ((equal type "fence_close") 6)
        (t 0)))))
 
@@ -553,7 +620,7 @@ Stops at the first line that is not part of a list in a field."
      ((and (string-match-p "\\`- \\(\\[[ x0-9]+\\]\\|~~\\[ \\]\\) " text)
            (or (not in-field) (zerop (current-indentation))))
       0)
-     ((string-match-p "\\`[DCAJ] :\\( \\|\\'\\)" text) 2)
+     ((string-match-p "\\`[DCAJR] :\\( \\|\\'\\)" text) 2)
      ((and in-header (string-match-p "\\`[./!;:] " text)) 4)
      ((string-match-p "\\``\\{3\\}" text) (if in-field 6 0))
      ((string-match-p "\\`\\([*-]\\|[0-9]+\\.\\) " text)
@@ -1163,7 +1230,7 @@ and with the epic's path and tags.  Any open task can be split; a split epic get
   "A property line of a task header: id, path, priority, type or tags.")
 
 (defconst tf-ts-mode--header-end-regexp
-  (concat "^\\(?:[ \t]*$\\|  [DCAJ] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
+  (concat "^\\(?:[ \t]*$\\|  [DCAJR] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
   "A line that ends the header region of a task: blank, a field, a heading, a task or a separator.")
 
 (defun tf-ts-mode--property-rank (char)
@@ -1320,6 +1387,7 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   (treesit-major-mode-setup)
   (font-lock-add-keywords nil (tf-ts-mode--violation-keywords) 'append)
   (add-hook 'eldoc-documentation-functions #'tf-ts-mode--eldoc nil t)
+  (add-hook 'xref-backend-functions #'tf-ts-mode--xref-backend nil t)
   (add-hook 'post-command-hook #'tf-ts-mode--schedule-folds nil t)
   (add-hook 'change-major-mode-hook #'tf-ts-mode--clear-folds nil t)
   (add-hook 'post-self-insert-hook #'tf-ts-mode--snap-property nil t)

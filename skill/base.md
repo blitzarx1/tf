@@ -129,7 +129,15 @@ job (type `j`): the agent drafts and refines it, the owner may edit it.
   C : <comment>
   A : <agent note>
   J : <job instructions>
+  R :
+
+      * <path>:<line>
 ```
+
+`R : ` holds the references of the task: a list, after a blank line, of `path:line` items (the
+vimgrep or `grep -rn` form; `:col` and `: text` may follow), relative to the folder of the
+`tasks.tfmd` that holds the task. It is always the last field of the task. The agent fills it; it
+never writes `C : `. Editors jump to a reference.
 
 ```
   D : Text, wrapped
@@ -176,6 +184,8 @@ projects, or none in particular, has no `/ :`.
   format, the tasks that worked in that worktree (those whose `A : ` note names its folder). The
   agent never reads it for state: that `.tf` is the source of truth, and everything current is
   kept there.
+  The mirrored task omits its `R : ` field. When the summary is written, the task in `tasks.tfmd`
+  gets `R : ` with the `path:line` of its entry in `summary.tfmd`.
 
 ## commands
 
@@ -331,6 +341,7 @@ Built-in commands:
          If the task was worked in a worktree (`## projects`), the options also cover creating or
          updating `summary.tfmd` in the worktree folder; it is a file outside `tasks.tfmd`,
          written after the item is closed, and only when chosen.
+         Writing it adds or refreshes the `R : ` field of the closed task (`## projects`).
       6. Run a job (`-j <ref>`): the job is in `# jobs`; read its `J : ` and the `A : ` and `C : `
          notes. Take the values of its parameters from the text the owner gave after the job's
          reference, and ask the owner explicitly for every parameter that has no value and no
