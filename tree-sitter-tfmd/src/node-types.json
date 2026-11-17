@@ -164,6 +164,21 @@
     "fields": {}
   },
   {
+    "type": "preamble",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "preamble_line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "priority",
     "named": true,
     "fields": {},
@@ -265,6 +280,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "preamble",
+          "named": true
+        },
         {
           "type": "task_section",
           "named": true
@@ -579,6 +598,10 @@
   },
   {
     "type": "path_marker",
+    "named": true
+  },
+  {
+    "type": "preamble_line",
     "named": true
   },
   {

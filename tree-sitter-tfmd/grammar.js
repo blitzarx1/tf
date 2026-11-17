@@ -18,11 +18,16 @@ export default grammar({
 
   rules: {
     source_file: $ => seq(
+      optional($.preamble),
       repeat($._blank),
       repeat($.task_section),
     ),
 
     _blank: $ => "\n",
+
+    // Free text before the first section (the disclaimer of a `summary.tfmd`).
+    preamble: $ => repeat1(seq($.preamble_line, "\n")),
+    preamble_line: $ => /[^#\n \t][^\n]*/,
 
     // # todo, # backlog, # done, # jobs
     task_section: $ => seq(

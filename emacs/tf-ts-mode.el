@@ -139,7 +139,8 @@ Nil: never fold lines.  Like the hidden overflow, the block at point is shown wh
 (defvar tf-ts-mode--font-lock-settings
   (treesit-font-lock-rules
    :language 'tfmd :feature 'heading
-   '((heading) @font-lock-keyword-face)
+   '((preamble_line) @font-lock-comment-face
+     (heading) @font-lock-keyword-face)
 
    :language 'tfmd :feature 'separator
    '((separator) @font-lock-comment-delimiter-face)

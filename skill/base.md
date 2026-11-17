@@ -182,11 +182,12 @@ projects, or none in particular, has no `/ :`.
   asks the owner for it. The folder's path is recorded in an `A : ` note of the task.
 * Not covered: edits of `tasks.tfmd` and the other files of a `.tf` (bookkeeping), and work that
   changes no project file (a question, type `q`).
-* `summary.tfmd` in a worktree folder is only for the owner: a reader's summary. It starts with a
-  disclaimer that it is a reference to the `.tf` that holds the task, then mirrors, in `tasks.tfmd`
-  format, the tasks that worked in that worktree (those whose `A : ` note names its folder). The
-  agent never reads it for state: that `.tf` is the source of truth, and everything current is
-  kept there.
+* `summary.tfmd` in a worktree folder is only for the owner: a reader's summary. Its layout is
+  fixed: one disclaimer paragraph (a reader's summary, only a reference to the `.tf` that holds the
+  task, giving its path; that `tasks.tfmd` is the source of truth), a blank line, `# done`, a blank
+  line, then the tasks that worked in that worktree (those whose `A : ` note names its folder),
+  mirrored in `tasks.tfmd` format. No other sections. The agent never reads it for state: that
+  `.tf` is the source of truth, and everything current is kept there.
   The mirrored task omits its `R : ` field. When the summary is written, the task in `tasks.tfmd`
   gets `R : ` with the `path:line` of its entry in `summary.tfmd`.
 

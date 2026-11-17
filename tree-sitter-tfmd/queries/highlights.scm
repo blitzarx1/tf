@@ -1,3 +1,5 @@
+(preamble_line) @comment
+
 (heading) @markup.heading
 
 (separator) @punctuation.delimiter

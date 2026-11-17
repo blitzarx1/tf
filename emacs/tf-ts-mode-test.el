@@ -751,6 +751,13 @@ Return the command it started."
     (should (tf-ts-mode-test--has-face 'tf-ts-code-face
                                        (tf-ts-mode-test--face-at text "      ```")))))
 
+(ert-deftest tf-ts-mode-test-preamble-is-a-comment ()
+  (let ((text "a note on top\n\n# done\n\n- [x] one\n    . 1792321201\n"))
+    (should (tf-ts-mode-test--has-face 'font-lock-comment-face
+                                       (tf-ts-mode-test--face-at text "note")))
+    (should-not (tf-ts-mode-test--has-face 'font-lock-warning-face
+                                           (tf-ts-mode-test--face-at text "note")))))
+
 (ert-deftest tf-ts-mode-test-bug-type-is-highlighted ()
   (let ((text "# todo\n\n- [ ] a\n    ; b\n\n- [ ] b\n    ; q\n\n- [ ] c\n    ; e\n"))
     (with-temp-buffer
