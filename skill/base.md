@@ -274,11 +274,12 @@ A command is typed by the owner and run by the agent. Rules for every command:
    what was done, never from a fixed template, and present it once, in one message, so that one
    answer with digits settles everything. Enumerate every sensible combination of the independent
    actions that apply here: record the item in `tasks.tfmd` (close, run, split, follow-up note),
-   commit, push, each commit and push per repository when several changed, and doing nothing more. Leave out what is impossible, and say in one
-   line what was left out and why (not a git repository, no changes, no remote, nothing to
-   record). `summary.tfmd` is not in the list: it is written with the record whenever the task
-   had a worktree, and one line says so. Several digits may be answered (`1,3`). After the answer do all the chosen actions
-   and nothing else; never leave an action of the list for a later question. The three-way
+   commit, push, each commit and push per repository when several changed, and doing nothing
+   more. Leave out what is impossible, and say in one line what was left out and why (not a git
+   repository, no changes, no remote, nothing to record). `summary.tfmd` is not in the list: it is
+   written with the record whenever the task had a worktree, and one line says so. Several digits
+   may be answered (`1,3`). After the answer do all the chosen actions and nothing else; never
+   leave an action of the list for a later question. The three-way
    `close` / `close and commit` / `close, commit and push` is only the minimal case.
 
 Built-in commands:
