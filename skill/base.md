@@ -188,8 +188,10 @@ projects, or none in particular, has no `/ :`.
   line, then the tasks that worked in that worktree (those whose `A : ` note names its folder),
   mirrored in `tasks.tfmd` format. No other sections. The agent never reads it for state: that
   `.tf` is the source of truth, and everything current is kept there.
-  The mirrored task omits its `R : ` field. When the summary is written, the task in `tasks.tfmd`
-  gets `R : ` with the `path:line` of its entry in `summary.tfmd`.
+  The mirrored task omits its `R : ` field. Every task worked in a worktree ends with a
+  `summary.tfmd` entry and an `R : ` on the task in `tasks.tfmd` with the `path:line` of that
+  entry: this is part of closing, never an option (step 5 of `tf`), and a follow-up (rule 6) on
+  such a task refreshes the entry.
 
 ## commands
 
@@ -272,10 +274,10 @@ A command is typed by the owner and run by the agent. Rules for every command:
    what was done, never from a fixed template, and present it once, in one message, so that one
    answer with digits settles everything. Enumerate every sensible combination of the independent
    actions that apply here: record the item in `tasks.tfmd` (close, run, split, follow-up note),
-   write or refresh `summary.tfmd` (worktrees), commit, push, each commit and push per repository
-   when several changed, and doing nothing more. Leave out what is impossible, and say in one
+   commit, push, each commit and push per repository when several changed, and doing nothing more. Leave out what is impossible, and say in one
    line what was left out and why (not a git repository, no changes, no remote, nothing to
-   record). Several digits may be answered (`1,3`). After the answer do all the chosen actions
+   record). `summary.tfmd` is not in the list: it is written with the record whenever the task
+   had a worktree, and one line says so. Several digits may be answered (`1,3`). After the answer do all the chosen actions
    and nothing else; never leave an action of the list for a later question. The three-way
    `close` / `close and commit` / `close, commit and push` is only the minimal case.
 
@@ -331,7 +333,7 @@ Built-in commands:
          into an epic of the same shape.
       5. When the work is finished and verified, do not touch `tasks.tfmd` yet: the owner may be
          writing in it. Report in chat and offer the options of rule 8 (close the task, commit,
-         push, the worktree summary, and their combinations), so the owner answers with digits.
+         push, and their combinations), so the owner answers with digits.
 
          Only after the answer (digits or the options' words), mark the item `[x]`, add a short
          `A : ` summary (commit hash if any, and which option the owner chose) and move it to the
@@ -341,10 +343,10 @@ Built-in commands:
          closed as step 1 says. Later follow-ups (rule 6) keep the last choice unless the owner
          says otherwise.
 
-         If the task changed code, it was worked in a worktree (`## projects`): the options also
-         cover creating or updating `summary.tfmd` in the worktree folder; it is a file outside
-         `tasks.tfmd`, written after the item is closed, and only when chosen.
-         Writing it adds or refreshes the `R : ` field of the closed task (`## projects`).
+         If the task changed code, it was worked in a worktree (`## projects`): together with the
+         record, whatever option was chosen, write or refresh `summary.tfmd` in the worktree
+         folder (a file outside `tasks.tfmd`) and add or refresh the `R : ` field of the task. The
+         same goes for a follow-up (rule 6).
       6. Run a job (`-j <ref>`): the job is in `# jobs`; read its `J : ` and the `A : ` and `C : `
          notes. Take the values of its parameters from the text the owner gave after the job's
          reference, and ask the owner explicitly for every parameter that has no value and no
