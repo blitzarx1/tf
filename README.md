@@ -47,7 +47,7 @@ To keep the task list private, add `.tf/`, `.claude/skills/tf` and `.agents/skil
 
 | You type | The agent |
 |---|---|
-| `tf` | finds the closest `.tf` (walking up from where you started), loads it and every `.tf` below its folder, and works the first open `# todo` item: answers a question, plans and then implements a task or bug, or asks you questions and splits an epic into tasks. Then it offers numbered options built from what was done (close, commit, push, worktree summary, and their combinations; answer with digits), and moves the item to `# done` with a summary (a job, type `j`, goes to `# jobs` instead and stays there). |
+| `tf` | finds the closest `.tf` (walking up from where you started), loads it and every `.tf` below its folder, and works the first open `# todo` item: answers a question, plans and then implements a task (a bug too), or asks you questions and splits an epic into tasks. Then it offers numbered options built from what was done (close, commit, push, worktree summary, and their combinations; answer with digits), and moves the item to `# done` with a summary (a job, type `j`, goes to `# jobs` instead and stays there). |
 | `tf <n>` | works the first `<n>` open `# todo` items together: one plan covering all of them, one approval, then implements them in order and closes each. |
 | `tf -t <ref>` | works the `# todo` item with that id, or the one your words describe, instead of the first. One `tf` per session: later messages in it are follow-ups, recorded as readable `A :` notes on that task; a second `tf` is declined, start a fresh session (unless the first split an epic: its tasks can follow in the same session). |
 | `tf -j <ref>` | runs the job from `# jobs` with that id or description, following its `J :` instructions (give parameter values in words after the job, or it asks for them), then (after your approval) raises its run count `[<n>]` and records the refined instructions. |
@@ -63,7 +63,6 @@ You write a task in `# todo`:
 ```
 - [ ] login redirect drops the return url
     ! 80
-    ; b
 
   D : After logging in from /settings the user lands on /. Keep the page they came from.
 ```
@@ -74,7 +73,6 @@ the task to `# done`:
 ```
 - [x] login redirect drops the return url
     ! 80
-    ; b
 
   D : After logging in from /settings the user lands on /. Keep the page they came from.
 
@@ -82,8 +80,9 @@ the task to `# done`:
       origin and redirects there; added a test for /settings. 3f9c2a1
 ```
 
-`! 80` is the priority (0-100, default 50) and `; b` the type: `t` task (the default), `q`
-question, `b` bug, `e` epic. Tags go on a `: ` line. `/ services/api` is the project the task
+`! 80` is the priority (0-100, default 50). The optional type line `; <letter>` marks a `q`
+question, an `e` epic or a `j` job; a task without it (a bug too) is a plain task. Tags go on a
+`: ` line. `/ services/api` is the project the task
 belongs to: a path relative to the folder that holds `.tf` (absent: that folder itself). Absent
 lines mean the defaults, so a new task is only a title and an id, `. 1792321201`: a unix timestamp
 in UTC (here 2026-10-18T11:00:01Z). Header lines go in the order id, project, priority, type,
@@ -126,7 +125,7 @@ Keys, all under `C-c C-`:
 | Key | Does |
 |---|---|
 | `n` / `p` | next / previous task |
-| `t` | new task below the current one in 3 steps: the title (one line, not blank), the project path (completion from the paths in use and the folders of the root; blank: none), the tags (completion, separated by `, `; blank: none). It gets an id; priority 50 and type `t` are the defaults |
+| `t` | new task below the current one in 3 steps: the title (one line, not blank), the project path (completion from the paths in use and the folders of the root; blank: none), the tags (completion, separated by `, `; blank: none). It gets an id; priority 50 and no type are the defaults |
 | `h` / `l` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
 | `j` | add a `J : ` job instructions field with `Parameters:` and `Steps:` lists, or go to the existing one; a job in `# todo` moves to `# jobs` with `v` |
@@ -159,7 +158,7 @@ instructions) a pastel green one (`tf-ts-comment-face`, `tf-ts-agent-face`, `tf-
 | File | What |
 |---|---|
 | `tasks.tfmd` | Your tasks |
-| `skill/base.md` | The format, the task types and the built-in commands with their full definitions (tf's; replaced by updates) |
+| `skill/base.md` | The format, the task types (`q`, `e`, `j`) and the built-in commands with their full definitions (tf's; replaced by updates) |
 | `skill/AGENTS.md` | Points the agent to `skill/base.md` and `tasks.tfmd` |
 | `skill/SKILL.md` | The `tf` skill, copied to `.claude/skills/tf` and `.agents/skills/tf` (refreshed by `update.sh`) |
 | `VERSION` | Installed tf version: the release tag, then the commit hash (written by install and update) |

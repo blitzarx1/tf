@@ -550,6 +550,10 @@
       "required": true,
       "types": [
         {
+          "type": "bad_type_value",
+          "named": true
+        },
+        {
           "type": "type_marker",
           "named": true
         },
@@ -563,6 +567,10 @@
   {
     "type": "\n",
     "named": false
+  },
+  {
+    "type": "bad_type_value",
+    "named": true
   },
   {
     "type": "fence_close",

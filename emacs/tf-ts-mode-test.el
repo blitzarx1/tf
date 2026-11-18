@@ -439,8 +439,8 @@
     (tf-ts-mode-split-epic titles)
     (buffer-string)))
 
-(ert-deftest tf-ts-mode-test-split-bug-with-tags ()
-  (let ((out (tf-ts-mode-test--split "# todo\n\n- [ ] fix it\n    . 1\n    ; b\n    : ui\n\n  D : why\n"
+(ert-deftest tf-ts-mode-test-split-typed-with-tags ()
+  (let ((out (tf-ts-mode-test--split "# todo\n\n- [ ] fix it\n    . 1\n    ; q\n    : ui\n\n  D : why\n"
                                      "] fix" '("first part" "second part"))))
     (should (string-match-p "\\`# todo\n\n- \\[2\\] fix it\n    \\. 1\n    ; e\n    : ui\n\n  D : why\n" out))
     (should (string-match-p
@@ -615,7 +615,7 @@ Return the command it started."
 
 (ert-deftest tf-ts-mode-test-snap-property-marker ()
   (dolist (header '("- [ ] title" "- [x] title" "- ~~[ ] title~~"))
-    (dolist (typed '(": emacs" "! 5" ". 17" "; b"))
+    (dolist (typed '(": emacs" "! 5" ". 17" "; q"))
       (tf-ts-mode-test--with-buffer (concat "# todo\n\n" header)
         (newline-and-indent)
         (should (= (if (string-prefix-p "- ~~" header) 8 6) (current-column)))
@@ -644,12 +644,12 @@ Return the command it started."
 (ert-deftest tf-ts-mode-test-snap-order ()
   (let ((head "# todo\n\n- [ ] title\n"))
     ;; each marker goes to its place among the others
-    (should (equal (tf-ts-mode-test--snap (concat head "    . 1\n    ; b\n    : t") "! 5")
-                   (concat head "    . 1\n    ! 5\n    ; b\n    : t")))
-    (should (equal (tf-ts-mode-test--snap (concat head "    ! 5\n    : t") "; b")
-                   (concat head "    ! 5\n    ; b\n    : t")))
-    (should (equal (tf-ts-mode-test--snap (concat head "    ! 5\n    ; b") ": t")
-                   (concat head "    ! 5\n    ; b\n    : t")))
+    (should (equal (tf-ts-mode-test--snap (concat head "    . 1\n    ; q\n    : t") "! 5")
+                   (concat head "    . 1\n    ! 5\n    ; q\n    : t")))
+    (should (equal (tf-ts-mode-test--snap (concat head "    ! 5\n    : t") "; q")
+                   (concat head "    ! 5\n    ; q\n    : t")))
+    (should (equal (tf-ts-mode-test--snap (concat head "    ! 5\n    ; q") ": t")
+                   (concat head "    ! 5\n    ; q\n    : t")))
     (should (equal (tf-ts-mode-test--snap (concat head "    ! 5\n    : t") ". 1")
                    (concat head "    . 1\n    ! 5\n    : t")))
     ;; under a wrapped title the id goes after the last title line
@@ -758,23 +758,12 @@ Return the command it started."
     (should-not (tf-ts-mode-test--has-face 'font-lock-warning-face
                                            (tf-ts-mode-test--face-at text "note")))))
 
-(ert-deftest tf-ts-mode-test-bug-type-is-highlighted ()
+(ert-deftest tf-ts-mode-test-unknown-type-is-a-warning ()
   (let ((text "# todo\n\n- [ ] a\n    ; b\n\n- [ ] b\n    ; q\n\n- [ ] c\n    ; e\n"))
-    (with-temp-buffer
-      (insert text)
-      (tf-ts-mode)
-      (font-lock-ensure)
-      (goto-char (point-min))
-      (search-forward "; b")
-      (should (tf-ts-mode-test--has-face 'tf-ts-bug-face (get-text-property (1- (point)) 'face)))
-      (should-not (tf-ts-mode-test--has-face 'tf-ts-bug-face
-                                             (get-text-property (- (point) 3) 'face)))
-      (search-forward "; q")
-      (should-not (tf-ts-mode-test--has-face 'tf-ts-bug-face
-                                             (get-text-property (1- (point)) 'face)))
-      (search-forward "; e")
-      (should-not (tf-ts-mode-test--has-face 'tf-ts-bug-face
-                                             (get-text-property (1- (point)) 'face))))))
+    (should (tf-ts-mode-test--has-face 'font-lock-warning-face (tf-ts-mode-test--face-at text "; b")))
+    (dolist (ok '("; q" "; e"))
+      (should-not (tf-ts-mode-test--has-face 'font-lock-warning-face
+                                             (tf-ts-mode-test--face-at text ok))))))
 
 (ert-deftest tf-ts-mode-test-code-block-band ()
   (let ((text (concat "# todo\n\n- [ ] t\n\n  C : x\n\n      ```\n          " (make-string 110 ?y)

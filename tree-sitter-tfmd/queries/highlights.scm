@@ -46,3 +46,4 @@
 (stray_property) @error
 (stray_field) @error
 (bad_ref) @error
+(bad_type_value) @error

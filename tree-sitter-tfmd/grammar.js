@@ -80,9 +80,11 @@ export default grammar({
     priority: $ => seq($.priority_marker, $.priority_value, "\n"),
     priority_marker: $ => token(prec(1, /    ! /)),
     priority_value: $ => /[0-9]+/,
-    type: $ => seq($.type_marker, $.type_value, "\n"),
+    type: $ => seq($.type_marker, choice($.type_value, $.bad_type_value), "\n"),
     type_marker: $ => token(prec(1, /    ; /)),
-    type_value: $ => /[a-z]+/,
+    // q (question), e (epic), j (job); any other word is a `bad_type_value` (warning).
+    type_value: $ => token(prec(1, /[qej]/)),
+    bad_type_value: $ => /[a-z]+/,
     tags: $ => seq($.tags_marker, $.tag, repeat(seq($._tag_separator, $.tag)), "\n"),
     tags_marker: $ => token(prec(1, /    : /)),
     tag: $ => /\S+/,

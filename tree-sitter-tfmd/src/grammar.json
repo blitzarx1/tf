@@ -472,8 +472,17 @@
           "name": "type_marker"
         },
         {
-          "type": "SYMBOL",
-          "name": "type_value"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "type_value"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "bad_type_value"
+            }
+          ]
         },
         {
           "type": "STRING",
@@ -493,6 +502,17 @@
       }
     },
     "type_value": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "PATTERN",
+          "value": "[qej]"
+        }
+      }
+    },
+    "bad_type_value": {
       "type": "PATTERN",
       "value": "[a-z]+"
     },

@@ -102,7 +102,7 @@ properties
 - [ ] fix login redirect
     . 1792321201
     ! 100
-    ; b
+    ; q
     : auth, user-flow
 
 --------------------------------
@@ -304,7 +304,7 @@ property lines out of order
     ! 50
     . 1792321201
     : a
-    ; b
+    ; q
     : again
 
 - [ ] after blank
@@ -382,7 +382,7 @@ project path property
     . 1792321201
     / services/api
     ! 80
-    ; b
+    ; q
     : auth
 
 - [ ] path out of order
@@ -517,4 +517,35 @@ note
   (task_section
     (heading)
     (ERROR
-      (type_value))))
+      (bad_type_value))))
+
+================================================================================:sep
+only q, e and j are types
+================================================================================:sep
+# todo
+
+- [ ] a
+    ; b
+
+- [ ] c
+    ; q
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (type
+        (type_marker)
+        (bad_type_value)))
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (type
+        (type_marker)
+        (type_value)))))

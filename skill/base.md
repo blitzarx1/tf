@@ -23,12 +23,12 @@ Task header identifies the task and its main properties. The property lines are 
 order, and indented 4 spaces. Id: `. ` and an integer. Project: `/ ` and a path, relative to the
 `home folder` (the folder that holds the `.tf` with the task), without a leading `/`. Priority:
 `! ` and an integer from 0 to 100; default 50, higher is more urgent, and it doesn't change which
-item `tf` picks. Type: `; ` and a lowercase word, one of the types below. Tags: `: ` and the tags,
-separated by spaces.
+item `tf` picks. Type: `; ` and one letter, one of the types below (a plain task has none). Tags:
+`: ` and the tags, separated by spaces.
 
 A property that is absent has its default: project the home folder itself (also when the
-line is empty), priority 50, type `t`, no tags. A new task is written with the title and the id
-only; the other lines appear when they differ from the default.
+line is empty), priority 50, no type (a plain task), no tags. A new task is written with the title
+and the id only; the other lines appear when they differ from the default.
 
 ```
 - [ ] <title>
@@ -47,11 +47,11 @@ within the file; it reads as an RFC3339 date, so `. 1792321201` is `2026-10-18T1
 
 ## task type
 
-The type says what the item is and how `tf` works it:
+The type says how `tf` works an item that is not a plain task; a task without a `; ` line is a
+plain task (a bug is one too: find its root cause first). Any other letter is flagged by the
+editor:
 
-- t    Task, the default when there is no `; ` line.
 - q    Question which requires only answer without any changes to be made.
-- b    Bug.
 - e    Epic: potentially huge task which requires decomposition into tasks.
 - j    Job: a repeatable piece of work with reusable instructions (`J : `); see `## jobs`.
 
@@ -306,7 +306,7 @@ Built-in commands:
       2. Question (type `q`): investigate and answer in chat, without changing the project. Then
          ask (rule 2) to record the answer; on approval add an `A : ` field with the short
          answer, mark the item `[x]` and move it to the top of `# done`.
-      3. Task, bug or job (type `t`, `b` or `j`; find the root cause of a bug first): its `D : `
+      3. Task or job (no type, or type `j`; find the root cause of a bug first): its `D : `
          and `C : ` fields are the spec (`A : ` holds earlier agent notes). Project files are
          changed only in the task's worktree folder (`## projects`; which project or projects it
          needs, from its `/ :` or the spec, is part of the plan).
@@ -370,7 +370,7 @@ Built-in commands:
       its open tasks are the items; if fewer are open, take those and say so.
 
       1. Questions among them: answer in the same reply and close them as step 2 of `tf` does.
-      2. Tasks, bugs, jobs and epics: one plan (plan mode, rule 3) for all of them, with a
+      2. Tasks, jobs and epics: one plan (plan mode, rule 3) for all of them, with a
          section per item in `# todo` order, plus what they share (common files, an order forced by
          dependencies, conflicts between their specs). Ask all open questions at once. Epics get
          their split into tasks, as step 4 of `tf` describes.

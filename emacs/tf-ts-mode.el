@@ -14,7 +14,7 @@
 ;;                '(tfmd "https://github.com/blitzarx1/tf" nil "tree-sitter-tfmd"))
 ;;   (treesit-install-language-grammar 'tfmd)
 ;;
-;; A new task gets an id (the unix time); priority 50, type `t' and no tags are implied.  A
+;; A new task gets an id (the unix time); priority 50, no type (a plain task) and no tags are implied.  A
 ;; property marker (`. ', `/ ', `! ', `; ' or `: ') typed on a header line moves the line to its
 ;; place: id, path (project, relative to the folder that holds `.tf'), priority, type, tags.
 ;;
@@ -124,10 +124,6 @@ Nil: never fold lines.  Like the hidden overflow, the block at point is shown wh
   "Cells of the code band of a folded block; the column ruler is drawn in the next one."
   (1+ tf-ts-mode-column-limit))
 
-(defface tf-ts-bug-face
-  '((((background light)) :background "#ffd9d9")
-    (((background dark)) :background "#4a2323"))
-  "Face for the bug task type, the letter `b': a pastel red background.")
 (defface tf-ts-cancelled-face '((t :inherit shadow :strike-through t))
   "Face for titles of cancelled tasks.")
 
@@ -170,9 +166,6 @@ Nil: never fold lines.  Like the hidden overflow, the block at point is shown wh
      (type_value) @font-lock-type-face
      (tag) @font-lock-constant-face)
 
-   :language 'tfmd :feature 'property :override t
-   '(((type_value) @tf-ts-bug-face (:match "\\`b\\'" @tf-ts-bug-face)))
-
    :language 'tfmd :feature 'field
    '((field_label) @font-lock-keyword-face)
 
@@ -192,7 +185,8 @@ Nil: never fold lines.  Like the hidden overflow, the block at point is shown wh
    '((invalid) @font-lock-warning-face
      (stray_property) @font-lock-warning-face
      (stray_field) @font-lock-warning-face
-     (bad_ref) @font-lock-warning-face))
+     (bad_ref) @font-lock-warning-face
+     (bad_type_value) @font-lock-warning-face))
   "Tree-sitter font-lock rules for `tf-ts-mode'.")
 
 (defvar tf-ts-mode--inline-code-settings
