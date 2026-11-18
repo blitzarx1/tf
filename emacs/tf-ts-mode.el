@@ -14,7 +14,8 @@
 ;;                '(tfmd "https://github.com/blitzarx1/tf" nil "tree-sitter-tfmd"))
 ;;   (treesit-install-language-grammar 'tfmd)
 ;;
-;; A new task gets an id (the unix time); priority 50, no type (a plain task) and no tags are implied.  A
+;; A new task gets an id (the unix time); priority 50, no type (a plain task) and no tags are
+;; implied.  A
 ;; property marker (`. ', `/ ', `! ', `; ' or `: ') typed on a header line moves the line to its
 ;; place: id, path (project, relative to the folder that holds `.tf'), priority, type, tags.
 ;;
@@ -48,8 +49,9 @@
 ;; and fenced blocks get a background.  A fenced block's band ends at column 100 and the text past
 ;; it is hidden (shown as `...') until point enters the block, which shows whole with its
 ;; band running to the window edge; see `tf-ts-mode-hide-overflow'.
-;; An `R :' field holds references, a list of `path:line' items relative to the file, and is the
-;; last field of a task (a field after it is a warning).  `M-.' on a reference jumps to it.
+;; An `R :' field holds references, a list of `path:line' items relative to the folder that holds
+;; `.tf' (like a task's path), and is the last field of a task (a field after it is a warning).
+;; `M-.' on a reference jumps to it.
 ;; The label of a `C :' field (the owner's), from the line start to the `:', has a pastel yellow
 ;; background, that of an `A :' field (the agent's) a pastel blue one, that of a `J :' field (job
 ;; instructions) a pastel green one.
@@ -343,6 +345,12 @@ The band comes first so the overflow rule can see it: text past the limit, trail
               ((equal (treesit-node-type node) "ref")))
     (treesit-node-text node t)))
 
+(defun tf-ts-mode--ref-base ()
+  "The folder a reference is relative to: the home folder of the `.tf' that holds the buffer.
+Like the `/ :' path of a task.  A file outside any `.tf' uses its own folder."
+  (or (tf-ts-mode--root)
+      (file-name-directory (or buffer-file-name default-directory))))
+
 (defun tf-ts-mode--xref-backend ()
   "Xref backend of `tf-ts-mode': `M-.' on a reference of an `R :' field jumps to it."
   (and (tf-ts-mode--ref-at-point) 'tf-ts-refs))
@@ -355,8 +363,7 @@ The band comes first so the overflow rule can see it: text past the limit, trail
 
 (cl-defmethod xref-backend-definitions ((_backend (eql tf-ts-refs)) ref)
   (unless (string-match tf-ts-mode--ref-regexp ref) (user-error "Not a reference: %s" ref))
-  (let* ((file (expand-file-name (match-string 1 ref)
-                                 (file-name-directory (or buffer-file-name default-directory))))
+  (let* ((file (expand-file-name (match-string 1 ref) (tf-ts-mode--ref-base)))
          (line (string-to-number (match-string 2 ref)))
          (col (if (match-string 3 ref) (max 0 (1- (string-to-number (match-string 3 ref)))) 0)))
     (unless (file-exists-p file) (user-error "No such file: %s" file))

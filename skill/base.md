@@ -135,9 +135,10 @@ job (type `j`): the agent drafts and refines it, the owner may edit it.
 ```
 
 `R : ` holds the references of the task: a list, after a blank line, of `path:line` items (the
-vimgrep or `grep -rn` form; `:col` and `: text` may follow), relative to the folder of the
-`tasks.tfmd` that holds the task. It is always the last field of the task. The agent fills it; it
-never writes `C : `. Editors jump to a reference.
+vimgrep or `grep -rn` form; `:col` and `: text` may follow), relative to the `home folder` of the
+`.tf` that holds the task, like `/ :` (not to the working directory, not to the `.tf` folder). The
+agent computes the path from the absolute path of the file minus the home folder. It is always the
+last field of the task. The agent fills it; it never writes `C : `. Editors jump to a reference.
 
 ```
   D : Text, wrapped

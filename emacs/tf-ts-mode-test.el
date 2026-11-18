@@ -189,6 +189,26 @@
       (dolist (l (nthcdr 5 lines))
         (when (> (length l) 0) (should (string-prefix-p "      " l)))))))
 
+(ert-deftest tf-ts-mode-test-refs-relative-to-home-folder ()
+  (let* ((home (make-temp-file "tfhome" t))
+         (file (expand-file-name ".tf/tasks.tfmd" home)))
+    (unwind-protect
+        (progn
+          (make-directory (file-name-directory file))
+          (make-directory (expand-file-name "x" home))
+          (with-temp-file file (insert "# todo\n"))
+          (with-temp-file (expand-file-name "x/y.txt" home) (insert "a\nb\nc\n"))
+          (with-temp-buffer
+            (insert "# todo\n\n- [ ] t\n    . 1\n\n  R :\n\n      * x/y.txt:3\n")
+            (setq buffer-file-name file)
+            (tf-ts-mode)
+            (let ((xref (car (xref-backend-definitions 'tf-ts-refs "x/y.txt:3"))))
+              (should (equal (expand-file-name "x/y.txt" home)
+                             (xref-file-location-file (xref-item-location xref))))
+              (should (= 3 (xref-file-location-line (xref-item-location xref)))))
+            (set-buffer-modified-p nil)))
+      (delete-directory home t))))
+
 (ert-deftest tf-ts-mode-test-refs-last-and-jump ()
   (let* ((dir (make-temp-file "tfref" t))
          (file (expand-file-name "tasks.tfmd" dir)))

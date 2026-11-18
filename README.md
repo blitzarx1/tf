@@ -129,7 +129,7 @@ Keys, all under `C-c C-`:
 | `h` / `l` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
 | `j` | add a `J : ` job instructions field with `Parameters:` and `Steps:` lists, or go to the existing one; a job in `# todo` moves to `# jobs` with `v` |
-| `M-.` | on a reference of an `R : ` field (`path:line`, relative to the file), jump to it |
+| `M-.` | on a reference of an `R : ` field (`path:line`, relative to the folder that holds `.tf`), jump to it |
 | `s` | split the task into subtasks (asks for titles until an empty one); it becomes an epic `- [<n>]` |
 | `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog. An epic moves with its subtasks when they share a stage; with some open and some not, nothing moves; the epic's `<n>` follows its subtasks |
 | `C-c SPC` / `C-c S-SPC` | separator below / above the task |
