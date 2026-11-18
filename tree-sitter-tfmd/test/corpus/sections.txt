@@ -549,3 +549,50 @@ only q, e and j are types
       (type
         (type_marker)
         (type_value)))))
+
+================================================================================:sep
+links field with a list of ids
+================================================================================:sep
+# todo
+
+- [ ] a
+    . 1
+
+  L :
+
+      * 2
+      * 3
+
+  R :
+
+      * x.txt:1
+
+  L :
+
+--------------------------------------------------------------------------------:sep
+
+(source_file
+  (task_section
+    (heading)
+    (task
+      (task_header
+        (state_open)
+        (title))
+      (id
+        (id_marker)
+        (id_value))
+      (field
+        (field_label)
+        (list_item
+          (list_marker)
+          (text))
+        (list_item
+          (list_marker)
+          (text)))
+      (ref_field
+        (ref_label)
+        (ref_item
+          (list_marker)
+          (ref)))
+      (stray_field
+        (stray_label)))))

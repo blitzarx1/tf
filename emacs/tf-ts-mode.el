@@ -41,7 +41,8 @@
 ;;                         after a confirmation
 ;;   i                     show the id of the task as an RFC3339 UTC date (eldoc does the same
 ;;                         with point on the id line)
-;;   h / l                 raise / lower the priority of the task by 10 (0 to 100)
+;;   l                     add a link to a task (an id in the `L :' field), see below
+;;   C-c > / C-c <         raise / lower the priority of the task by 10 (0 to 100)
 ;;   C-c SPC / C-c S-SPC   add a separator below / above the current task
 ;;
 ;; Typing: a backtick pairs with its mate; a third backtick on an empty line makes a fenced block
@@ -49,6 +50,10 @@
 ;; and fenced blocks get a background.  A fenced block's band ends at column 100 and the text past
 ;; it is hidden (shown as `...') until point enters the block, which shows whole with its
 ;; band running to the window edge; see `tf-ts-mode-hide-overflow'.
+;; An `L :' field holds the ids of linked tasks, one per list item.  A task links to tasks of its
+;; own `.tf' and of the `.tf' folders below it, never to one above.  `C-c C-l' adds an id (chosen
+;; with completion) to the field, which it creates if the task has none; `M-.' on an id jumps to the
+;; task and eldoc shows its title.
 ;; An `R :' field holds references, a list of `path:line' items relative to the folder that holds
 ;; `.tf' (like a task's path), and is the last field of a task (a field after it is a warning).
 ;; `M-.' on a reference jumps to it.
@@ -103,6 +108,10 @@ It keeps the buffer's font, so a character fills one grid cell and lines end at 
   '((((background light)) :background "#e0f5e0")
     (((background dark)) :background "#223a26"))
   "Face for the labels of `J :' fields (job instructions): a pastel green background.")
+(defface tf-ts-link-face
+  '((((background light)) :background "#ffe8cc")
+    (((background dark)) :background "#40301e"))
+  "Face for the label of `L :' fields (linked tasks): a pastel orange background.")
 (defface tf-ts-ref-face
   '((((background light)) :background "#f0e6f6")
     (((background dark)) :background "#33283d"))
@@ -222,17 +231,18 @@ so the indent carries the background too; `tf-ts-mode--update-folds' ends or ext
     (goto-char limit)
     nil))
 
-;; Highlight of the labels of `C :', `A :' and `J :' fields
+;; Highlight of the labels of `C :', `A :', `J :' and `L :' fields
 
 (defun tf-ts-mode--field-band (node)
-  "Return (FACE FIRST LAST) for the field NODE if it is a `C :', `A :' or `J :' field, else nil.
+  "Return (FACE FIRST LAST) for the field NODE if it is a `C :', `A :', `J :' or `L :' field, else nil.
 FIRST is the beginning of the label's line and LAST the position after the `:' of the label."
   (let* ((label (tf-ts-mode--child node "field_label"))
          (face (and label
                     (pcase (aref (string-trim (treesit-node-text label)) 0)
                       (?C 'tf-ts-comment-face)
                       (?A 'tf-ts-agent-face)
-                      (?J 'tf-ts-job-face)))))
+                      (?J 'tf-ts-job-face)
+                      (?L 'tf-ts-link-face)))))
     (when face
       (save-excursion
         (goto-char (treesit-node-start label))
@@ -254,7 +264,7 @@ FIRST is the beginning of the label's line and LAST the position after the `:' o
     nil))
 
 (defun tf-ts-mode--fontify-fields (limit)
-  "Paint the label of every `C :', `A :' and `J :' field up to LIMIT, from the line start to `:'."
+  "Paint the label of every `C :', `A :', `J :' and `L :' field up to LIMIT, from the line start to `:'."
   (let ((beg (point)))
     (dolist (node (treesit-query-capture (treesit-buffer-root-node 'tfmd)
                                          '((field) @f) beg limit t))
@@ -351,17 +361,29 @@ Like the `/ :' path of a task.  A file outside any `.tf' uses its own folder."
   (or (tf-ts-mode--root)
       (file-name-directory (or buffer-file-name default-directory))))
 
+(defun tf-ts-mode--xref-id-at-point ()
+  "The identifier at point for the xref backend: a reference, or `link:ID' on an `L :' item."
+  (or (tf-ts-mode--ref-at-point)
+      (when-let* ((id (tf-ts-mode--link-at-point))) (concat "link:" id))))
+
 (defun tf-ts-mode--xref-backend ()
-  "Xref backend of `tf-ts-mode': `M-.' on a reference of an `R :' field jumps to it."
-  (and (tf-ts-mode--ref-at-point) 'tf-ts-refs))
+  "Xref backend of `tf-ts-mode': `M-.' on a reference of an `R :' field or an id of an `L :'
+field jumps to it."
+  (and (tf-ts-mode--xref-id-at-point) 'tf-ts-refs))
 
 (cl-defmethod xref-backend-identifier-at-point ((_backend (eql tf-ts-refs)))
-  (tf-ts-mode--ref-at-point))
+  (tf-ts-mode--xref-id-at-point))
 
 (cl-defmethod xref-backend-identifier-completion-table ((_backend (eql tf-ts-refs)))
   nil)
 
 (cl-defmethod xref-backend-definitions ((_backend (eql tf-ts-refs)) ref)
+  (if (string-prefix-p "link:" ref)
+      (tf-ts-mode--link-xrefs (substring ref 5))
+    (tf-ts-mode--ref-definitions ref)))
+
+(defun tf-ts-mode--ref-definitions (ref)
+  "The xref items of the reference REF, `path:line' relative to the home folder."
   (unless (string-match tf-ts-mode--ref-regexp ref) (user-error "Not a reference: %s" ref))
   (let* ((file (expand-file-name (match-string 1 ref) (tf-ts-mode--ref-base)))
          (line (string-to-number (match-string 2 ref)))
@@ -624,7 +646,7 @@ Stops at the first line that is not part of a list in a field."
      ((and (string-match-p "\\`- \\(\\[[ x0-9]+\\]\\|~~\\[ \\]\\) " text)
            (or (not in-field) (zerop (current-indentation))))
       0)
-     ((string-match-p "\\`[DCAJR] :\\( \\|\\'\\)" text) 2)
+     ((string-match-p "\\`[DCAJLR] :\\( \\|\\'\\)" text) 2)
      ((and in-header (string-match-p "\\`[./!;:] " text)) 4)
      ((string-match-p "\\``\\{3\\}" text) (if in-field 6 0))
      ((string-match-p "\\`\\([*-]\\|[0-9]+\\.\\) " text)
@@ -825,16 +847,25 @@ A task without a priority line gets one, from the default 50."
     (expand-file-name dir)))
 
 (defun tf-ts-mode--eldoc (&rest _)
-  "Documentation function: the date of the id at point, the folder of the path at point."
-  (save-excursion
-    (beginning-of-line)
-    (cond ((looking-at "    \\. \\([0-9]+\\)$")
-           (tf-ts-mode--id-date (string-to-number (match-string 1))))
-          ((looking-at "    / \\(.+\\)$")
-           (let ((root (tf-ts-mode--root)))
-             (if root
-                 (abbreviate-file-name (expand-file-name (match-string 1) root))
-               (match-string 1)))))))
+  "Documentation function: the date of the id at point, the folder of the path at point, the
+title of the task linked at point."
+  (if-let* ((id (tf-ts-mode--link-at-point)))
+      (let ((task (assoc id (tf-ts-mode--linkable-tasks))))
+        (cond (task (format "%s%s" (cadr task)
+                            (if (nth 3 task)
+                                (format "  [%s]" (tf-ts-mode--link-file-name (nth 3 task)))
+                              "")))
+              ((tf-ts-mode--above-has-id-p id) "In a .tf above this one: links go only down")
+              (t "No such task")))
+    (save-excursion
+      (beginning-of-line)
+      (cond ((looking-at "    \\. \\([0-9]+\\)$")
+             (tf-ts-mode--id-date (string-to-number (match-string 1))))
+            ((looking-at "    / \\(.+\\)$")
+             (let ((root (tf-ts-mode--root)))
+               (if root
+                   (abbreviate-file-name (expand-file-name (match-string 1) root))
+                 (match-string 1))))))))
 
 (defun tf-ts-mode--fields (task label)
   "Field nodes of TASK whose label is LABEL (\"D\", \"C\" or \"A\"), or all fields when nil."
@@ -888,6 +919,154 @@ summary line."
       (let ((start (point)))
         (insert tf-ts-mode--job-template)
         (goto-char (+ start (length "  J : ")))))))
+
+;;;; Links (`L :')
+
+(defconst tf-ts-mode--skipped-dirs
+  '(".git" ".tf-worktrees" "node_modules" "vendor" "target" "dist" "build" ".venv")
+  "Folders not searched for the `.tf' folders below the home folder (as rule 1 of `base.md').")
+
+(defun tf-ts-mode--child-task-files (root)
+  "The `.tf/tasks.tfmd' files below the folder ROOT, not the one of ROOT itself."
+  (let ((own (expand-file-name ".tf/tasks.tfmd" root)))
+    (seq-remove
+     (lambda (f) (or (file-equal-p f own) (not (equal (file-name-nondirectory
+                                                       (directory-file-name (file-name-directory f)))
+                                                      ".tf"))))
+     (directory-files-recursively
+      root "\\`tasks\\.tfmd\\'" nil
+      (lambda (dir) (not (member (file-name-nondirectory dir) tf-ts-mode--skipped-dirs)))))))
+
+(defun tf-ts-mode--scan-tasks (text)
+  "The tasks in TEXT of a tfmd file, as a list of (ID TITLE LINE): the id, the first line of the
+title and the line number of the id line."
+  (let (tasks)
+    (with-temp-buffer
+      (insert text)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^- \\(?:\\[[ x0-9]+\\]\\|~~\\[ \\]\\) \\(.*\\)\\(?:\n    [^./!;:\n][^\n]*\\)*\n    \\. \\([0-9]+\\)$"
+              nil t)
+        (push (list (match-string 2) (string-trim-right (match-string 1) "~*")
+                    (line-number-at-pos (match-end 0)))
+              tasks)))
+    (nreverse tasks)))
+
+(defun tf-ts-mode--linkable-tasks ()
+  "The tasks a task of this buffer may link to, as a list of (ID TITLE LINE FILE).
+These are the tasks of this buffer and of the `.tf' folders below the home folder; a `.tf' above
+is never linkable.  FILE is nil for this buffer."
+  (let ((root (tf-ts-mode--root)))
+    (append
+     (mapcar (lambda (task) (append task (list nil)))
+             (tf-ts-mode--scan-tasks (buffer-substring-no-properties (point-min) (point-max))))
+     (when root
+       (mapcan (lambda (file)
+                 (mapcar (lambda (task) (append task (list file)))
+                         (tf-ts-mode--scan-tasks
+                          (with-temp-buffer (insert-file-contents file) (buffer-string)))))
+               (tf-ts-mode--child-task-files root))))))
+
+(defun tf-ts-mode--link-file-name (file)
+  "FILE of a linkable task as shown to the owner: the folder of its `.tf', relative to the root."
+  (when file
+    (file-relative-name (file-name-directory (directory-file-name (file-name-directory file)))
+                        (or (tf-ts-mode--root) default-directory))))
+
+(defun tf-ts-mode--link-field (task)
+  "The `L :' field of TASK, or nil."
+  (car (tf-ts-mode--fields task "L")))
+
+(defun tf-ts-mode--task-id (task)
+  "The id of TASK as a string, or nil."
+  (tf-ts-mode--property-value task 0))
+
+(defun tf-ts-mode--linked-ids (task)
+  "The ids in the `L :' field of TASK."
+  (when-let* ((field (tf-ts-mode--link-field task)))
+    (let (ids)
+      (dolist (item (treesit-filter-child field (lambda (n) (equal (treesit-node-type n) "list_item"))))
+        (let ((text (string-trim (treesit-node-text (tf-ts-mode--child item "text")))))
+          (when (string-match-p "\\`[0-9]+\\'" text) (push text ids))))
+      (nreverse ids))))
+
+(defun tf-ts-mode-add-link (&optional id)
+  "Link the current task to the task ID: add it to the `L :' field, which is created if needed.
+Interactively ID is chosen with completion from the tasks of this file and of the `.tf' folders
+below it.  The field goes before an `R :' field, which stays the last."
+  (interactive)
+  (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
+         (own (tf-ts-mode--task-id task))
+         (linked (tf-ts-mode--linked-ids task))
+         (id (or id
+                 (let* ((cands (seq-remove (lambda (c) (or (equal (car c) own)
+                                                           (member (car c) linked)))
+                                           (tf-ts-mode--linkable-tasks)))
+                        (alist (mapcar (lambda (c)
+                                         (cons (format "%s  %s%s" (car c) (cadr c)
+                                                       (if (nth 3 c)
+                                                           (format "  [%s]"
+                                                                   (tf-ts-mode--link-file-name
+                                                                    (nth 3 c)))
+                                                         ""))
+                                               (car c)))
+                                       cands)))
+                   (unless alist (user-error "No task to link to"))
+                   (cdr (assoc (completing-read "Link to task: " alist nil t) alist)))))
+         (field (tf-ts-mode--link-field task))
+         (ref (car (treesit-filter-child task (lambda (n) (equal (treesit-node-type n) "ref_field"))))))
+    (when (member id linked) (user-error "Task %s is already linked" id))
+    (cond
+     (field
+      (goto-char (tf-ts-mode--last-line-end field))
+      (insert (if (tf-ts-mode--linked-ids task) "\n" "\n\n") "      * " id))
+     (ref
+      (goto-char (treesit-node-start ref))
+      (insert "  L :\n\n      * " id "\n\n"))
+     (t
+      (goto-char (tf-ts-mode--last-line-end task))
+      (insert "\n\n  L :\n\n      * " id)))))
+
+(defun tf-ts-mode--link-at-point ()
+  "The task id of the `L :' list item at point, or nil."
+  (when-let* ((node (treesit-node-at (max (tf-ts-mode--first-char) (1- (line-end-position))) 'tfmd))
+              (item (treesit-parent-until node (lambda (n) (equal (treesit-node-type n) "list_item")) t))
+              (field (treesit-node-parent item))
+              ((equal (treesit-node-type field) "field"))
+              ((string-match-p "\\`[ ]*L :" (treesit-node-text (tf-ts-mode--child field "field_label"))))
+              (text (string-trim (treesit-node-text (tf-ts-mode--child item "text"))))
+              ((string-match-p "\\`[0-9]+\\'" text)))
+    text))
+
+(defun tf-ts-mode--above-has-id-p (id)
+  "Non-nil if a `.tf' above the one of this buffer holds a task with ID."
+  (when-let* ((root (tf-ts-mode--root)))
+    (let ((dir (file-name-directory (directory-file-name root))) found)
+      (while (and (not found) (setq dir (locate-dominating-file dir ".tf/tasks.tfmd")))
+        (let ((file (expand-file-name ".tf/tasks.tfmd" dir)))
+          (setq found (assoc id (tf-ts-mode--scan-tasks
+                                 (with-temp-buffer (insert-file-contents file) (buffer-string)))))
+          (setq dir (file-name-directory (directory-file-name dir)))))
+      found)))
+
+(defun tf-ts-mode--link-xrefs (id)
+  "Xref items for the linkable tasks with ID: this file's first, then the `.tf' folders below."
+  (let ((matches (seq-filter (lambda (c) (equal (car c) id)) (tf-ts-mode--linkable-tasks))))
+    (unless matches
+      (user-error (if (tf-ts-mode--above-has-id-p id)
+                      "Task %s is in a .tf above this one; links go only down"
+                    "No task %s in this .tf or below")
+                  id))
+    (mapcar (lambda (c)
+              (let ((summary (format "%s  %s" (car c) (cadr c))))
+                (xref-make summary
+                           (if (nth 3 c)
+                               (xref-make-file-location (nth 3 c) (nth 2 c) 0)
+                             (xref-make-buffer-location
+                              (current-buffer)
+                              (save-excursion (goto-char (point-min)) (forward-line (1- (nth 2 c)))
+                                              (point)))))))
+            matches)))
 
 (defun tf-ts-mode-separator-below ()
   "Add a separator below the current task."
@@ -1248,7 +1427,7 @@ for Emacs.  The output is shown in the `*tf update*' buffer."
   "A property line of a task header: id, path, priority, type or tags.")
 
 (defconst tf-ts-mode--header-end-regexp
-  (concat "^\\(?:[ \t]*$\\|  [DCAJR] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
+  (concat "^\\(?:[ \t]*$\\|  [DCAJLR] :\\|#\\|- \\|" (make-string 32 ?-) "\\)")
   "A line that ends the header region of a task: blank, a field, a heading, a task or a separator.")
 
 (defun tf-ts-mode--property-rank (char)
@@ -1376,8 +1555,9 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   "C-c C-n" #'tf-ts-mode-next-task
   "C-c C-p" #'tf-ts-mode-previous-task
   "C-c C-t" #'tf-ts-mode-new
-  "C-c C-h" #'tf-ts-mode-priority-up
-  "C-c C-l" #'tf-ts-mode-priority-down
+  "C-c >" #'tf-ts-mode-priority-up
+  "C-c <" #'tf-ts-mode-priority-down
+  "C-c C-l" #'tf-ts-mode-add-link
   "C-c C-d" #'tf-ts-mode-add-description
   "C-c C-m" #'tf-ts-mode-add-comment
   "C-c C-j" #'tf-ts-mode-add-job-instructions

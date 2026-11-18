@@ -1011,8 +1011,9 @@ Return the command it started."
   (with-temp-buffer
     (tf-ts-mode)
     (dolist (b '(("C-c C-t" . tf-ts-mode-new)
-                 ("C-c C-h" . tf-ts-mode-priority-up)
-                 ("C-c C-l" . tf-ts-mode-priority-down)
+                 ("C-c >" . tf-ts-mode-priority-up)
+                 ("C-c C-l" . tf-ts-mode-add-link)
+                 ("C-c <" . tf-ts-mode-priority-down)
                  ("C-c C-v" . tf-ts-mode-advance-task)))
       (should (eq (key-binding (kbd (car b))) (cdr b))))
     (dolist (k '("C-c t" "C-c h" "C-c l"))
@@ -1123,6 +1124,99 @@ TITLES is the list of answers to the title question, in order."
     (should (equal (sort (tf-ts-mode--known-values 4) #'string<) '("ops" "ui")))))
 
 (provide 'tf-ts-mode-test)
+
+
+;;;; Links (`L :')
+
+(defun tf-ts-mode-test--link (text id)
+  "TEXT with the link to ID added to its task at point (the end of the text)."
+  (tf-ts-mode-test--with-buffer text
+    (tf-ts-mode-add-link id)
+    (buffer-string)))
+
+(ert-deftest tf-ts-mode-test-add-link-creates-field ()
+  (should (equal (tf-ts-mode-test--link "# todo\n\n- [ ] a\n    . 1\n\n  D : d\n" "2")
+                 "# todo\n\n- [ ] a\n    . 1\n\n  D : d\n\n  L :\n\n      * 2\n"))
+  (should (equal (tf-ts-mode-test--link "# todo\n\n- [ ] a\n    . 1\n" "2")
+                 "# todo\n\n- [ ] a\n    . 1\n\n  L :\n\n      * 2\n")))
+
+(ert-deftest tf-ts-mode-test-add-link-goes-before-refs ()
+  (let ((out (tf-ts-mode-test--link
+              "# done\n\n- [x] a\n    . 1\n\n  R :\n\n      * x.txt:1\n" "2")))
+    (should (equal out "# done\n\n- [x] a\n    . 1\n\n  L :\n\n      * 2\n\n  R :\n\n      * x.txt:1\n"))
+    (tf-ts-mode-test--with-buffer out
+      (should-not (string-match-p "stray\\|bad_ref\\|ERROR"
+                                  (treesit-node-string (treesit-buffer-root-node 'tfmd)))))))
+
+(ert-deftest tf-ts-mode-test-add-link-appends-and-refuses-duplicates ()
+  (let ((text "# todo\n\n- [ ] a\n    . 1\n\n  L :\n\n      * 2\n"))
+    (should (equal (tf-ts-mode-test--link text "3") (concat text "      * 3\n")))
+    (should-error (tf-ts-mode-test--link text "2") :type 'user-error)))
+
+(defmacro tf-ts-mode-test--with-tree (&rest body)
+  "Run BODY with HOME, a folder with a `.tf' and a child `.tf' below it, and CHILD, the child
+`.tf/tasks.tfmd'; the child holds the task 20 `deep task' and HOME the task 10 `top task'."
+  (declare (indent 0))
+  `(let* ((home (make-temp-file "tftree" t))
+          (top (expand-file-name ".tf/tasks.tfmd" home))
+          (child (expand-file-name "svc/.tf/tasks.tfmd" home)))
+     (unwind-protect
+         (progn
+           (make-directory (file-name-directory top))
+           (make-directory (file-name-directory child) t)
+           (with-temp-file top (insert "# todo\n\n- [ ] top task\n    . 10\n"))
+           (with-temp-file child (insert "# todo\n\n- [ ] deep task\n    . 20\n"))
+           ,@body)
+       (delete-directory home t))))
+
+(defun tf-ts-mode-test--xref-lines (file text id)
+  "The summaries of the xref items of the link ID, in a buffer visiting FILE with TEXT."
+  (with-temp-buffer
+    (insert text)
+    (setq buffer-file-name file)
+    (tf-ts-mode)
+    (prog1 (mapcar #'xref-item-summary (xref-backend-definitions 'tf-ts-refs (concat "link:" id)))
+      (set-buffer-modified-p nil))))
+
+(ert-deftest tf-ts-mode-test-links-go-down-only ()
+  (tf-ts-mode-test--with-tree
+    (let ((up "# todo\n\n- [ ] up\n    . 1\n\n  L :\n\n      * 20\n")
+          (down "# todo\n\n- [ ] low\n    . 2\n\n  L :\n\n      * 10\n"))
+      ;; the upper .tf reaches the lower one
+      (should (equal (tf-ts-mode-test--xref-lines top up "20") '("20  deep task")))
+      ;; the lower .tf does not reach the upper one
+      (let ((err (should-error (tf-ts-mode-test--xref-lines child down "10") :type 'user-error)))
+        (should (string-match-p "above" (cadr err))))
+      ;; nothing at all
+      (should-error (tf-ts-mode-test--xref-lines top up "99") :type 'user-error))))
+
+(ert-deftest tf-ts-mode-test-link-candidates ()
+  (tf-ts-mode-test--with-tree
+    (with-temp-buffer
+      (insert "# todo\n\n- [ ] up\n    . 1\n")
+      (setq buffer-file-name top)
+      (tf-ts-mode)
+      (should (equal (mapcar #'car (tf-ts-mode--linkable-tasks)) '("1" "20"))))
+    (with-temp-buffer
+      (insert-file-contents child)
+      (setq buffer-file-name child)
+      (tf-ts-mode)
+      (should (equal (mapcar #'car (tf-ts-mode--linkable-tasks)) '("20"))))))
+
+(ert-deftest tf-ts-mode-test-link-eldoc-and-label ()
+  (tf-ts-mode-test--with-tree
+    (with-temp-buffer
+      (insert "# todo\n\n- [ ] up\n    . 1\n\n  L :\n\n      * 20\n")
+      (setq buffer-file-name top)
+      (tf-ts-mode)
+      (goto-char (point-max))
+      (forward-line -1)
+      (should (equal (tf-ts-mode--link-at-point) "20"))
+      (should (string-match-p "\\`deep task  \\[svc" (tf-ts-mode--eldoc)))
+      (font-lock-ensure)
+      (should (tf-ts-mode-test--has-face 'tf-ts-link-face
+                                         (get-text-property (+ (point-min) (length "# todo\n\n- [ ] up\n    . 1\n\n  L")) 'face)))
+      (set-buffer-modified-p nil))))
 
 ;;; tf-ts-mode-test.el ends here
 

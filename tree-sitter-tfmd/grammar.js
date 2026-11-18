@@ -96,7 +96,7 @@ export default grammar({
       repeat(choice($._blank, $.list_item, $.text_line, $.code_block, $._invalid_line)),
     ),
     _field_head: $ => seq($.field_label, optional($.field_text), "\n"),
-    field_label: $ => /  [DCAJ] : ?/,
+    field_label: $ => /  [DCAJL] : ?/,
     field_text: $ => $._inline,
 
     // `  R : ` holds the references, always the last field: a list of `path:line[:col[: text]]`. A
@@ -115,7 +115,7 @@ export default grammar({
       alias($._stray_label, $.stray_label), optional($.field_text), "\n",
       repeat(choice($._blank, $.list_item, $.text_line, $.code_block, $._invalid_line)),
     ),
-    _stray_label: $ => /  [DCAJR] : ?/,
+    _stray_label: $ => /  [DCAJLR] : ?/,
 
     // Running text: plain chunks and single-line `inline code`. A lone or unclosed backtick is plain.
     _inline: $ => repeat1(choice($.inline_code, $._plain)),

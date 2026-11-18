@@ -126,7 +126,8 @@ Keys, all under `C-c C-`:
 |---|---|
 | `n` / `p` | next / previous task |
 | `t` | new task below the current one in 3 steps: the title (one line, not blank), the project path (completion from the paths in use and the folders of the root; blank: none), the tags (completion, separated by `, `; blank: none). It gets an id; priority 50 and no type are the defaults |
-| `h` / `l` | raise / lower the priority of the task by 10 (0 to 100) |
+| `l` | link the task to another one: choose a task (id and title; this file's tasks and those of the `.tf` folders below) and its id goes into an `L : ` field, created before `R : ` when missing. `M-.` on an id of an `L : ` item jumps to the task, eldoc shows its title. Links go only down the tree, never to a `.tf` above |
+| `C-c >` / `C-c <` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
 | `j` | add a `J : ` job instructions field with `Parameters:` and `Steps:` lists, or go to the existing one; a job in `# todo` moves to `# jobs` with `v` |
 | `M-.` | on a reference of an `R : ` field (`path:line`, relative to the folder that holds `.tf`), jump to it |

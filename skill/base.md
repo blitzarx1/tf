@@ -122,13 +122,17 @@ parent's text.
 
 `D : ` is the description and `C : ` the owner's comment. `A : ` is the agent's: its answers,
 comments, summaries and follow-ups. The agent never writes `C : `. `J : ` is the instructions of a
-job (type `j`): the agent drafts and refines it, the owner may edit it.
+job (type `j`): the agent drafts and refines it, the owner may edit it. `L : ` holds the links of
+the task (see below).
 
 ```
   D : <description>
   C : <comment>
   A : <agent note>
   J : <job instructions>
+  L :
+
+      * <task id>
   R :
 
       * <path>:<line>
@@ -139,6 +143,14 @@ vimgrep or `grep -rn` form; `:col` and `: text` may follow), relative to the `ho
 `.tf` that holds the task, like `/ :` (not to the working directory, not to the `.tf` folder). The
 agent computes the path from the absolute path of the file minus the home folder. It is always the
 last field of the task. The agent fills it; it never writes `C : `. Editors jump to a reference.
+
+`L : ` holds the links: a list, after a blank line, of the ids of the tasks this task is connected
+to (one id per item, `D : `, `C : `, `A : ` and `J : ` may stand before or after it; `R : ` stays
+last). A task links to tasks of its own `tasks.tfmd` and of the `.tf` folders below its home folder
+(children, grandchildren, ...), never to a task of a `.tf` above it. The owner adds a link in the
+editor (`C-c C-l`); the agent may offer links, but writes one only after approval (rule 2). The ids
+of one file are unique, so one id may match tasks in several files: then say which file is meant
+(its folder relative to the home folder) in the `A : ` note or ask.
 
 ```
   D : Text, wrapped
@@ -282,6 +294,12 @@ A command is typed by the owner and run by the agent. Rules for every command:
    may be answered (`1,3`). After the answer do all the chosen actions and nothing else; never
    leave an action of the list for a later question. The three-way
    `close` / `close and commit` / `close, commit and push` is only the minimal case.
+9. Links: before planning a task (steps 3, 4 and 6 of `tf`, and every item of `tf <n>`), read the
+   tasks its `L : ` links to (by id, in any section of the loaded `tasks.tfmd` files; a link to
+   an id that is not loaded is skipped) to expand the context. While analysing and planning, if
+   other loaded tasks are clearly connected to it, advise the owner to link them in the plan; the
+   link is written after approval (rule 2), and only to tasks of the same `.tf` or of a `.tf`
+   below it, never of one above.
 
 Built-in commands:
 
