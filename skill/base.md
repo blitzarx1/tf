@@ -193,6 +193,9 @@ projects, or none in particular, has no `/ :`.
   `<task folder>/<project>/`; the code is changed there. The clone link is the `origin` of the
   project in the home folder; if there is none, or the project is not in the home folder, the agent
   asks the owner for it. The folder's path is recorded in an `A : ` note of the task.
+* Branches: right after cloning, the agent creates a feature branch in each clone (named like the
+  task folder, or by the project's own branch convention) and commits only there. It pushes only
+  that branch (`git push -u origin <branch>`); rule 10 of `## commands` forbids the default one.
 * Not covered: edits of `tasks.tfmd` and the other files of a `.tf` (bookkeeping), and work that
   changes no project file (a question, type `q`).
 * `summary.tfmd` in a worktree folder is only for the owner: a reader's summary. Its layout is
@@ -293,13 +296,20 @@ A command is typed by the owner and run by the agent. Rules for every command:
    written with the record whenever the task had a worktree, and one line says so. Several digits
    may be answered (`1,3`). After the answer do all the chosen actions and nothing else; never
    leave an action of the list for a later question. The three-way
-   `close` / `close and commit` / `close, commit and push` is only the minimal case.
+   `close` / `close and commit` / `close, commit and push` is only the minimal case. Every push
+   option names its branch (`push to <branch>`); none pushes to the default branch unless rule 10's
+   exception applies. Say in the "left out" line when that rule removed an option.
 9. Links: before planning a task (steps 3, 4 and 6 of `tf`, and every item of `tf <n>`), read the
    tasks its `L : ` links to (by id, in any section of the loaded `tasks.tfmd` files; a link to
    an id that is not loaded is skipped) to expand the context. While analysing and planning, if
    other loaded tasks are clearly connected to it, advise the owner to link them in the plan; the
    link is written after approval (rule 2), and only to tasks of the same `.tf` or of a `.tf`
    below it, never of one above.
+10. Pushes: never push to the default branch of a repository (`main`, `master`, or what
+    `origin/HEAD` points to), and never force-push it. A push goes only to a feature branch
+    (`## projects`, Branches). Exception: the task's `D : ` or `C : ` explicitly requires a push to
+    the default branch; then the plan and the option label name it. An approved plan or an earlier
+    choice of "push" is not that requirement.
 
 Built-in commands:
 
@@ -357,11 +367,11 @@ Built-in commands:
 
          Only after the answer (digits or the options' words), mark the item `[x]`, add a short
          `A : ` summary (commit hash if any, and which option the owner chose) and move it to the
-         top of `# done`, then commit and push as chosen. A job (type `j`) is not marked `[x]`: it
-         becomes `- [1]` and goes to the top of `# jobs`. If the item is tagged `e<id>`, lower
-         `<n>` in the header of the epic with that id by one; at `[0]` leave the epic open, it is
-         closed as step 1 says. Later follow-ups (rule 6) keep the last choice unless the owner
-         says otherwise.
+         top of `# done`, then commit and push as chosen (to the feature branch, rule 10). A job
+         (type `j`) is not marked `[x]`: it becomes `- [1]` and goes to the top of `# jobs`. If the
+         item is tagged `e<id>`, lower `<n>` in the header of the epic with that id by one; at `[0]`
+         leave the epic open, it is closed as step 1 says. Later follow-ups (rule 6) keep the last
+         choice unless the owner says otherwise.
 
          If the task changed code, it was worked in a worktree (`## projects`): together with the
          record, whatever option was chosen, write or refresh `summary.tfmd` in the worktree
@@ -379,8 +389,8 @@ Built-in commands:
 
          Only after the answer, raise the job's `[<n>]` by one, put the refined instructions in
          `J : ` and a short `A : ` note of the run (commit hash if any, and the option chosen),
-         then commit and push as chosen. The job stays where it is. The session belongs to the
-         job (rules 6 and 7).
+         then commit and push as chosen (to the feature branch, rule 10). The job stays where it
+         is. The session belongs to the job (rules 6 and 7).
 
 - `tf <n>`
 
