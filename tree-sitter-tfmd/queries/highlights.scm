@@ -30,8 +30,6 @@
 (tag) @tag
 
 (field_label) @keyword
-(ref_label) @keyword
-(ref) @string.special.path
 
 (list_marker) @markup.list
 
@@ -45,5 +43,4 @@
 (invalid) @error
 (stray_property) @error
 (stray_field) @error
-(bad_ref) @error
 (bad_type_value) @error

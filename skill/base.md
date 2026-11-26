@@ -133,21 +133,12 @@ the task (see below).
   L :
 
       * <task id>
-  R :
-
-      * <path>:<line>
 ```
 
-`R : ` holds the references of the task: a list, after a blank line, of `path:line` items (the
-vimgrep or `grep -rn` form; `:col` and `: text` may follow), relative to the `home folder`, like
-`/ :` (not to the working directory, not to the `.tf` folder). The agent computes the path from the
-absolute path of the file minus the home folder. It is always the last field of the task. The agent
-fills it; it never writes `C : `. Editors jump to a reference.
-
 `L : ` holds the links: a list, after a blank line, of the ids of the tasks this task is connected
-to (one id per item, `D : `, `C : `, `A : ` and `J : ` may stand before or after it; `R : ` stays
-last). A task links to tasks of `tasks.tfmd`. The owner adds a link in the editor (`C-c C-l`); the
-agent may offer links, but writes one only after approval (rule 2).
+to (one id per item, `D : `, `C : `, `A : ` and `J : ` may stand before or after it). A task links
+to tasks of `tasks.tfmd`. The owner adds a link in the editor (`C-c C-l`); the agent may offer
+links, but writes one only after approval (rule 2).
 
 ```
   D : Text, wrapped
@@ -188,29 +179,22 @@ no project in particular has no `/ :`.
   * one project whose folder is a git repository with a clean working tree: no clone; the agent
     makes a feature branch in the project folder (named from the task title, lowercase words joined
     by `-`, or by the project's own branch convention), changes the code and commits only there. It
-    records the branch in an `A : ` note of the task. No `summary.tfmd` and no `R : `;
+    records the branch in an `A : ` note of the task. No worktree;
   * several projects, or one whose folder has uncommitted changes (the agent never touches them): a
-    worktree. The agent makes sure `$HOME/.tf/.worktrees` exists, creates in it a folder named from
-    the task title (lowercase words joined by `-`) and clones each project it needs into that
-    folder, as `<task folder>/<project>/`; the code is changed there. The clone link is the `origin`
-    of the project in `$HOME`; if there is none, the agent asks the owner for it. The folder's path
-    is recorded in an `A : ` note of the task.
+    worktree. The agent makes sure `$HOME/.tf/.worktrees` exists, creates in it a folder named by
+    the task id (`.worktrees/<id>`) and clones each project it needs into that folder, as
+    `<id>/<project>/`; the code is changed there. A folder worked by several tasks (`tf <n>`, or a
+    later task that reuses it) is named by all their ids, ascending, joined by `-`
+    (`.worktrees/<id1>-<id2>`); the agent creates it so from the start, or renames the existing
+    folder when a task joins it, and fixes the paths in the earlier `A : ` notes. The clone link is
+    the `origin` of the project in `$HOME`; if there is none, the agent asks the owner for it. The
+    folder's path is recorded in an `A : ` note of the task; the editor opens it with `C-c C-w`.
 * Branches: when the work starts (project folder), or right after cloning (worktree), the agent
-  creates a feature branch (named like the task folder, or by the project's own branch convention)
-  and commits only there. It pushes only that branch (`git push -u origin <branch>`); rule 10 of
-  `## commands` forbids the default one.
+  creates a feature branch (named from the task title, lowercase words joined by `-`, or by the
+  project's own branch convention) and commits only there. It pushes only that branch
+  (`git push -u origin <branch>`); rule 10 of `## commands` forbids the default one.
 * Not covered: edits of `tasks.tfmd` and the other files of `.tf` (bookkeeping), and work that
   changes no project file (a question, type `q`).
-* `summary.tfmd` in a worktree folder (worktree tasks only) is only for the owner: a reader's
-  summary. Its layout is fixed: one disclaimer paragraph (a reader's summary, only a reference to
-  `$HOME/.tf/tasks.tfmd`, giving its path; that `tasks.tfmd` is the source of truth), a blank line,
-  `# done`, a blank line, then the tasks that worked in that worktree (those whose `A : ` note
-  names its folder), mirrored in `tasks.tfmd` format. No other sections. The agent never reads it
-  for state: `tasks.tfmd` is the source of truth, and everything current is kept there.
-  The mirrored task omits its `R : ` field. Every task worked in a worktree ends with a
-  `summary.tfmd` entry and an `R : ` on the task in `tasks.tfmd` with the `path:line` of that
-  entry: this is part of closing, never an option (step 5 of `tf`), and a follow-up (rule 6) on
-  such a task refreshes the entry.
 
 ## commands
 
@@ -285,8 +269,7 @@ A command is typed by the owner and run by the agent. Rules for every command:
    actions that apply here: record the item in `tasks.tfmd` (close, run, split, follow-up note),
    commit, push, each commit and push per repository when several changed, and doing nothing
    more. Leave out what is impossible, and say in one line what was left out and why (not a git
-   repository, no changes, no remote, nothing to record). `summary.tfmd` is not in the list: it is
-   written with the record whenever the task had a worktree, and one line says so. Several digits
+   repository, no changes, no remote, nothing to record). Several digits
    may be answered (`1,3`). After the answer do all the chosen actions and nothing else; never
    leave an action of the list for a later question. The three-way
    `close` / `close and commit` / `close, commit and push` is only the minimal case. Every push
@@ -365,11 +348,6 @@ Built-in commands:
          item is tagged `e<id>`, lower `<n>` in the header of the epic with that id by one; at `[0]`
          leave the epic open, it is closed as step 1 says. Later follow-ups (rule 6) keep the last
          choice unless the owner says otherwise.
-
-         If the task changed code in a worktree (`## projects`): together with
-         the record, whatever option was chosen, write or refresh `summary.tfmd` in the worktree
-         folder (a file outside `tasks.tfmd`) and add or refresh the `R : ` field of the task. The
-         same goes for a follow-up (rule 6).
       6. Run a job (`-j <ref>`): the job is in `# jobs`; read its `J : ` and the `A : ` and `C : `
          notes. Take the values of its parameters from the text the owner gave after the job's
          reference, and ask the owner explicitly for every parameter that has no value and no

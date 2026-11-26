@@ -429,7 +429,7 @@ project path property
         (text)))))
 
 ================================================================================:sep
-references field is last
+an old R field is a stray field
 ================================================================================:sep
 
 # todo
@@ -462,15 +462,15 @@ references field is last
       (field
         (field_label)
         (field_text))
-      (ref_field
-        (ref_label)
-        (ref_item
+      (stray_field
+        (stray_label)
+        (list_item
           (list_marker)
-          (ref))
-        (ref_item
+          (text))
+        (list_item
           (list_marker)
-          (ref))
-        (bad_ref
+          (text))
+        (list_item
           (list_marker)
           (text)))
       (stray_field
@@ -589,10 +589,10 @@ links field with a list of ids
         (list_item
           (list_marker)
           (text)))
-      (ref_field
-        (ref_label)
-        (ref_item
+      (stray_field
+        (stray_label)
+        (list_item
           (list_marker)
-          (ref)))
+          (text)))
       (stray_field
         (stray_label)))))

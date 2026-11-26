@@ -41,7 +41,7 @@ header line (paths relative to `$HOME`, several separated by a space). `install.
 
 | You type | The agent |
 |---|---|
-| `tf` | loads `~/.tf/tasks.tfmd` (always that one) and works the first open `# todo` item: answers a question, plans and then implements a task (a bug too), or asks you questions and splits an epic into tasks. Then it offers numbered options built from what was done (close, commit, push to the feature branch, worktree summary, and their combinations; answer with digits; never a push to `main` unless the task says so), and moves the item to `# done` with a summary (a job, type `j`, goes to `# jobs` instead and stays there). |
+| `tf` | loads `~/.tf/tasks.tfmd` (always that one) and works the first open `# todo` item: answers a question, plans and then implements a task (a bug too), or asks you questions and splits an epic into tasks. Then it offers numbered options built from what was done (close, commit, push to the feature branch, and their combinations; answer with digits; never a push to `main` unless the task says so), and moves the item to `# done` with a summary (a job, type `j`, goes to `# jobs` instead and stays there). |
 | `tf <n>` | works the first `<n>` open `# todo` items together: one plan covering all of them, one approval, then implements them in order and closes each. |
 | `tf -t <ref>` | works the `# todo` item with that id, or the one your words describe, instead of the first. One `tf` per session: later messages in it are follow-ups, recorded as readable `A :` notes on that task; a second `tf` is declined, start a fresh session (unless the first split an epic: its tasks can follow in the same session). |
 | `tf -j <ref>` | runs the job from `# jobs` with that id or description, following its `J :` instructions (give parameter values in words after the job, or it asks for them), then (after your approval) raises its run count `[<n>]` and records the refined instructions. |
@@ -93,13 +93,12 @@ the first open task of a split epic.
 One `.tf` serves every project below `$HOME`. A task's `/ ` line names its projects.
 
 A task that changes the files of one project whose folder is a clean git repository is worked on a
-feature branch in the project folder itself, with no `summary.tfmd`.
+feature branch in the project folder itself.
 
 A task that needs several projects, or one whose folder has uncommitted changes, gets a folder in
-`~/.tf/.worktrees` with a fresh clone of each project it needs (`<task folder>/<project>/`, link
-from the project's `origin`, or the agent asks for it), and afterwards the agent writes a
-`summary.tfmd` there: a reader's summary that only refers to `~/.tf/tasks.tfmd`, which stays the
-source of truth.
+`~/.tf/.worktrees/<task id>/` (`<id1>-<id2>/` when several tasks share it) with a fresh clone of
+each project it needs (`<task id>/<project>/`, link from the project's `origin`, or the agent asks
+for it). In Emacs `C-c C-w` on the task opens that folder.
 
 ## Update
 
@@ -122,11 +121,12 @@ Keys, all under `C-c C-`:
 |---|---|
 | `n` / `p` | next / previous task |
 | `t` | new task below the current one in 3 steps: the title (one line, not blank), the project path (completion from the paths in use and the folders of the root; blank: none), the tags (completion, separated by `, `; blank: none). It gets an id; priority 50 and no type are the defaults |
-| `l` | link the task to another one: choose a task (id and title) and its id goes into an `L : ` field, created before `R : ` when missing. `M-.` on an id of an `L : ` item jumps to the task, eldoc shows its title. |
+| `l` | link the task to another one: choose a task (id and title) and its id goes into an `L : ` field, created when missing. `M-.` on an id of an `L : ` item jumps to the task, eldoc shows its title. |
 | `C-c >` / `C-c <` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
 | `j` | add a `J : ` job instructions field with `Parameters:` and `Steps:` lists, or go to the existing one; a job in `# todo` moves to `# jobs` with `v` |
-| `M-.` | on a reference of an `R : ` field (`path:line`, relative to `$HOME`), jump to it |
+| `M-.` | on a path of the `/ ` line, open the project folder (relative to `$HOME`) in dired |
+| `C-c C-w` | open the worktree folder of the task (`~/.tf/.worktrees/<id>/`) in dired, or say it does not exist |
 | `s` | split the task into subtasks (asks for titles until an empty one); it becomes an epic `- [<n>]` |
 | `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog. An epic moves with its subtasks when they share a stage; with some open and some not, nothing moves; the epic's `<n>` follows its subtasks |
 | `C-c SPC` / `C-c S-SPC` | separator below / above the task |
