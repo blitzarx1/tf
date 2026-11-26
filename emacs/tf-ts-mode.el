@@ -17,7 +17,8 @@
 ;; A new task gets an id (the unix time); priority 50, no type (a plain task) and no tags are
 ;; implied.  A
 ;; property marker (`. ', `/ ', `! ', `; ' or `: ') typed on a header line moves the line to its
-;; place: id, path (project, relative to the folder that holds `.tf'), priority, type, tags.
+;; place: id, path (projects, relative to the home folder, separated by a space), priority, type,
+;; tags.
 ;;
 ;; The mode keeps lines at 100 columns (auto-fill; the 101st column and beyond, trailing spaces and
 ;; tabs are highlighted),
@@ -37,7 +38,7 @@
 ;;   v                     move the task one stage on: backlog, todo, done, cancelled, backlog
 ;;                         (an epic moves with its subtasks, or refuses; see
 ;;                         `tf-ts-mode-advance-task')
-;;   u                     run `.tf/update.sh' and `update-grammar.sh' (rebuilds the grammar),
+;;   u                     run `~/.tf/update.sh' and `update-grammar.sh' (rebuilds the grammar),
 ;;                         after a confirmation
 ;;   i                     show the id of the task as an RFC3339 UTC date (eldoc does the same
 ;;                         with point on the id line)
@@ -51,11 +52,11 @@
 ;; it is hidden (shown as `...') until point enters the block, which shows whole with its
 ;; band running to the window edge; see `tf-ts-mode-hide-overflow'.
 ;; An `L :' field holds the ids of linked tasks, one per list item.  A task links to tasks of its
-;; own `.tf' and of the `.tf' folders below it, never to one above.  `C-c C-l' adds an id (chosen
-;; with completion) to the field, which it creates if the task has none; `M-.' on an id jumps to the
-;; task and eldoc shows its title.
-;; An `R :' field holds references, a list of `path:line' items relative to the folder that holds
-;; `.tf' (like a task's path), and is the last field of a task (a field after it is a warning).
+;; file.  `C-c C-l' adds an id (chosen with completion) to the field, which it creates if the
+;; task has none; `M-.' on an id jumps to the task and eldoc shows its title.
+;; An `R :' field holds references, a list of `path:line' items relative to the home folder
+;; (`tf-ts-mode-home', like a task's path), and is the last field of a task (a field after it is a
+;; warning).
 ;; `M-.' on a reference jumps to it.
 ;; The label of a `C :' field (the owner's), from the line start to the `:', has a pastel yellow
 ;; background, that of an `A :' field (the agent's) a pastel blue one, that of a `J :' field (job
@@ -356,10 +357,8 @@ The band comes first so the overflow rule can see it: text past the limit, trail
     (treesit-node-text node t)))
 
 (defun tf-ts-mode--ref-base ()
-  "The folder a reference is relative to: the home folder of the `.tf' that holds the buffer.
-Like the `/ :' path of a task.  A file outside any `.tf' uses its own folder."
-  (or (tf-ts-mode--root)
-      (file-name-directory (or buffer-file-name default-directory))))
+  "The folder a reference is relative to: the home folder of tf.  Like the `/ :' path of a task."
+  (tf-ts-mode--root))
 
 (defun tf-ts-mode--xref-id-at-point ()
   "The identifier at point for the xref backend: a reference, or `link:ID' on an `L :' item."
@@ -748,15 +747,26 @@ Stops at the first line that is not part of a list in a field."
           (cl-pushnew v values :test #'equal))))
     (nreverse values)))
 
+(defun tf-ts-mode--git-folders (dir depth)
+  "The git repositories below DIR (relative to the home folder), at most DEPTH levels deep.
+Folders starting with a dot and some heavy ones are skipped."
+  (let (found)
+    (dolist (sub (ignore-errors (directory-files dir t directory-files-no-dot-files-regexp t)))
+      (let ((name (file-name-nondirectory sub)))
+        (when (and (file-directory-p sub) (not (file-symlink-p sub))
+                   (not (string-prefix-p "." name))
+                   (not (member name '("node_modules" "vendor" "Library" "target"))))
+          (if (file-exists-p (expand-file-name ".git" sub))
+              (push (file-relative-name sub (tf-ts-mode--root)) found)
+            (when (> depth 1)
+              (setq found (append (tf-ts-mode--git-folders sub (1- depth)) found)))))))
+    found))
+
 (defun tf-ts-mode--project-paths ()
-  "Candidates for a project path: the paths in use, and the folders of the root `.tf'."
-  (let* ((root (tf-ts-mode--root))
-         (dirs (and root
-                    (seq-filter
-                     (lambda (f) (and (file-directory-p (expand-file-name f root))
-                                      (not (string-prefix-p "." f))))
-                     (directory-files root nil nil t)))))
-    (delete-dups (append (tf-ts-mode--known-values 1) dirs))))
+  "Candidates for a project path: the paths in use, and the git repositories below the home
+folder (up to 3 levels deep)."
+  (delete-dups (append (mapcan #'split-string (tf-ts-mode--known-values 1))
+                       (tf-ts-mode--git-folders (tf-ts-mode--root) 3))))
 
 (defun tf-ts-mode--read-new ()
   "Ask for the parts of a new task: (TITLE PATH TAGS).
@@ -840,32 +850,30 @@ A task without a priority line gets one, from the default 50."
     (unless (and id (string-match-p "\\`[0-9]+\\'" id)) (user-error "The task has no id"))
     (message "%s = %s" id (tf-ts-mode--id-date (string-to-number id)))))
 
+(defcustom tf-ts-mode-home "~"
+  "The home folder of tf: the folder that holds `.tf', and the base of the project paths of
+`/ :' and of the references of `R :'.  tf lives only in `<home>/.tf'."
+  :type 'directory
+  :group 'tf-ts)
+
 (defun tf-ts-mode--root ()
-  "The folder that holds the `.tf' folder of the current buffer, or nil."
-  (when-let* ((dir (locate-dominating-file (or buffer-file-name default-directory)
-                                           ".tf/tasks.tfmd")))
-    (expand-file-name dir)))
+  "The home folder of tf, with a trailing slash: where `.tf' is, whatever the buffer."
+  (file-name-as-directory (expand-file-name tf-ts-mode-home)))
 
 (defun tf-ts-mode--eldoc (&rest _)
   "Documentation function: the date of the id at point, the folder of the path at point, the
 title of the task linked at point."
   (if-let* ((id (tf-ts-mode--link-at-point)))
       (let ((task (assoc id (tf-ts-mode--linkable-tasks))))
-        (cond (task (format "%s%s" (cadr task)
-                            (if (nth 3 task)
-                                (format "  [%s]" (tf-ts-mode--link-file-name (nth 3 task)))
-                              "")))
-              ((tf-ts-mode--above-has-id-p id) "In a .tf above this one: links go only down")
-              (t "No such task")))
+        (if task (cadr task) "No such task"))
     (save-excursion
       (beginning-of-line)
       (cond ((looking-at "    \\. \\([0-9]+\\)$")
              (tf-ts-mode--id-date (string-to-number (match-string 1))))
             ((looking-at "    / \\(.+\\)$")
              (let ((root (tf-ts-mode--root)))
-               (if root
-                   (abbreviate-file-name (expand-file-name (match-string 1) root))
-                 (match-string 1))))))))
+               (mapconcat (lambda (path) (abbreviate-file-name (expand-file-name path root)))
+                          (split-string (match-string 1)) " ")))))))
 
 (defun tf-ts-mode--fields (task label)
   "Field nodes of TASK whose label is LABEL (\"D\", \"C\" or \"A\"), or all fields when nil."
@@ -922,21 +930,6 @@ summary line."
 
 ;;;; Links (`L :')
 
-(defconst tf-ts-mode--skipped-dirs
-  '(".git" ".tf-worktrees" "node_modules" "vendor" "target" "dist" "build" ".venv")
-  "Folders not searched for the `.tf' folders below the home folder (as rule 1 of `base.md').")
-
-(defun tf-ts-mode--child-task-files (root)
-  "The `.tf/tasks.tfmd' files below the folder ROOT, not the one of ROOT itself."
-  (let ((own (expand-file-name ".tf/tasks.tfmd" root)))
-    (seq-remove
-     (lambda (f) (or (file-equal-p f own) (not (equal (file-name-nondirectory
-                                                       (directory-file-name (file-name-directory f)))
-                                                      ".tf"))))
-     (directory-files-recursively
-      root "\\`tasks\\.tfmd\\'" nil
-      (lambda (dir) (not (member (file-name-nondirectory dir) tf-ts-mode--skipped-dirs)))))))
-
 (defun tf-ts-mode--scan-tasks (text)
   "The tasks in TEXT of a tfmd file, as a list of (ID TITLE LINE): the id, the first line of the
 title and the line number of the id line."
@@ -953,25 +946,9 @@ title and the line number of the id line."
     (nreverse tasks)))
 
 (defun tf-ts-mode--linkable-tasks ()
-  "The tasks a task of this buffer may link to, as a list of (ID TITLE LINE FILE).
-These are the tasks of this buffer and of the `.tf' folders below the home folder; a `.tf' above
-is never linkable.  FILE is nil for this buffer."
-  (let ((root (tf-ts-mode--root)))
-    (append
-     (mapcar (lambda (task) (append task (list nil)))
-             (tf-ts-mode--scan-tasks (buffer-substring-no-properties (point-min) (point-max))))
-     (when root
-       (mapcan (lambda (file)
-                 (mapcar (lambda (task) (append task (list file)))
-                         (tf-ts-mode--scan-tasks
-                          (with-temp-buffer (insert-file-contents file) (buffer-string)))))
-               (tf-ts-mode--child-task-files root))))))
-
-(defun tf-ts-mode--link-file-name (file)
-  "FILE of a linkable task as shown to the owner: the folder of its `.tf', relative to the root."
-  (when file
-    (file-relative-name (file-name-directory (directory-file-name (file-name-directory file)))
-                        (or (tf-ts-mode--root) default-directory))))
+  "The tasks a task of this buffer may link to, as a list of (ID TITLE LINE): the tasks of this
+buffer."
+  (tf-ts-mode--scan-tasks (buffer-substring-no-properties (point-min) (point-max))))
 
 (defun tf-ts-mode--link-field (task)
   "The `L :' field of TASK, or nil."
@@ -992,8 +969,7 @@ is never linkable.  FILE is nil for this buffer."
 
 (defun tf-ts-mode-add-link (&optional id)
   "Link the current task to the task ID: add it to the `L :' field, which is created if needed.
-Interactively ID is chosen with completion from the tasks of this file and of the `.tf' folders
-below it.  The field goes before an `R :' field, which stays the last."
+Interactively ID is chosen with completion from the tasks of this file.  The field goes before an `R :' field, which stays the last."
   (interactive)
   (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
          (own (tf-ts-mode--task-id task))
@@ -1002,14 +978,7 @@ below it.  The field goes before an `R :' field, which stays the last."
                  (let* ((cands (seq-remove (lambda (c) (or (equal (car c) own)
                                                            (member (car c) linked)))
                                            (tf-ts-mode--linkable-tasks)))
-                        (alist (mapcar (lambda (c)
-                                         (cons (format "%s  %s%s" (car c) (cadr c)
-                                                       (if (nth 3 c)
-                                                           (format "  [%s]"
-                                                                   (tf-ts-mode--link-file-name
-                                                                    (nth 3 c)))
-                                                         ""))
-                                               (car c)))
+                        (alist (mapcar (lambda (c) (cons (format "%s  %s" (car c) (cadr c)) (car c)))
                                        cands)))
                    (unless alist (user-error "No task to link to"))
                    (cdr (assoc (completing-read "Link to task: " alist nil t) alist)))))
@@ -1038,34 +1007,16 @@ below it.  The field goes before an `R :' field, which stays the last."
               ((string-match-p "\\`[0-9]+\\'" text)))
     text))
 
-(defun tf-ts-mode--above-has-id-p (id)
-  "Non-nil if a `.tf' above the one of this buffer holds a task with ID."
-  (when-let* ((root (tf-ts-mode--root)))
-    (let ((dir (file-name-directory (directory-file-name root))) found)
-      (while (and (not found) (setq dir (locate-dominating-file dir ".tf/tasks.tfmd")))
-        (let ((file (expand-file-name ".tf/tasks.tfmd" dir)))
-          (setq found (assoc id (tf-ts-mode--scan-tasks
-                                 (with-temp-buffer (insert-file-contents file) (buffer-string)))))
-          (setq dir (file-name-directory (directory-file-name dir)))))
-      found)))
-
 (defun tf-ts-mode--link-xrefs (id)
-  "Xref items for the linkable tasks with ID: this file's first, then the `.tf' folders below."
+  "Xref items for the tasks with ID of this buffer."
   (let ((matches (seq-filter (lambda (c) (equal (car c) id)) (tf-ts-mode--linkable-tasks))))
-    (unless matches
-      (user-error (if (tf-ts-mode--above-has-id-p id)
-                      "Task %s is in a .tf above this one; links go only down"
-                    "No task %s in this .tf or below")
-                  id))
+    (unless matches (user-error "No task %s in this file" id))
     (mapcar (lambda (c)
-              (let ((summary (format "%s  %s" (car c) (cadr c))))
-                (xref-make summary
-                           (if (nth 3 c)
-                               (xref-make-file-location (nth 3 c) (nth 2 c) 0)
-                             (xref-make-buffer-location
-                              (current-buffer)
-                              (save-excursion (goto-char (point-min)) (forward-line (1- (nth 2 c)))
-                                              (point)))))))
+              (xref-make (format "%s  %s" (car c) (cadr c))
+                         (xref-make-buffer-location
+                          (current-buffer)
+                          (save-excursion (goto-char (point-min)) (forward-line (1- (nth 2 c)))
+                                          (point)))))
             matches)))
 
 (defun tf-ts-mode-separator-below ()
@@ -1402,12 +1353,11 @@ and with the epic's path and tags.  Any open task can be split; a split epic get
     (and script (file-executable-p script) script)))
 
 (defun tf-ts-mode-update ()
-  "After a confirmation, run `.tf/update.sh' of the project and `update-grammar.sh'.
+  "After a confirmation, run `~/.tf/update.sh' and `update-grammar.sh'.
 `.tf/update.sh' updates the agent instructions; `update-grammar.sh' rebuilds the `tfmd' grammar
 for Emacs.  The output is shown in the `*tf update*' buffer."
   (interactive)
-  (let* ((root (or (locate-dominating-file default-directory ".tf/tasks.tfmd")
-                   (user-error "No .tf/tasks.tfmd in this or a parent directory")))
+  (let* ((root (tf-ts-mode--root))
          (script (expand-file-name ".tf/update.sh" root))
          (grammar (tf-ts-mode--grammar-script)))
     (unless (file-executable-p script) (user-error "No executable %s" script))
