@@ -258,18 +258,6 @@
           }
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "ref_field"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
@@ -637,104 +625,6 @@
     "field_text": {
       "type": "SYMBOL",
       "name": "_inline"
-    },
-    "ref_field": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "ref_label"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "field_text"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
-          "type": "STRING",
-          "value": "\n"
-        },
-        {
-          "type": "REPEAT",
-          "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "_blank"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "ref_item"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "bad_ref"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "_invalid_line"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "ref_label": {
-      "type": "PATTERN",
-      "value": "  R : ?"
-    },
-    "ref_item": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "list_marker"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "ref"
-        },
-        {
-          "type": "STRING",
-          "value": "\n"
-        }
-      ]
-    },
-    "ref": {
-      "type": "TOKEN",
-      "content": {
-        "type": "PREC",
-        "value": 1,
-        "content": {
-          "type": "PATTERN",
-          "value": "[^:\\n]+:[0-9]+(:[^\\n]*)?"
-        }
-      }
-    },
-    "bad_ref": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "list_marker"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "text"
-        },
-        {
-          "type": "STRING",
-          "value": "\n"
-        }
-      ]
     },
     "stray_field": {
       "type": "SEQ",

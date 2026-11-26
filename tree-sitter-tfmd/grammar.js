@@ -52,7 +52,6 @@ export default grammar({
       optional($.tags),
       repeat(choice($._blank, $._invalid_line, $.stray_property)),
       repeat($.field),
-      optional($.ref_field),
       repeat($.stray_field),
     ),
 
@@ -98,18 +97,6 @@ export default grammar({
     _field_head: $ => seq($.field_label, optional($.field_text), "\n"),
     field_label: $ => /  [DCAJL] : ?/,
     field_text: $ => $._inline,
-
-    // `  R : ` holds the references, always the last field: a list of `path:line[:col[: text]]`. A
-    // field after it (any label, a second `R :` too) is a `stray_field`; a list line that is not a
-    // reference is a `bad_ref`.
-    ref_field: $ => seq(
-      $.ref_label, optional($.field_text), "\n",
-      repeat(choice($._blank, $.ref_item, $.bad_ref, $._invalid_line)),
-    ),
-    ref_label: $ => /  R : ?/,
-    ref_item: $ => seq($.list_marker, $.ref, "\n"),
-    ref: $ => token(prec(1, /[^:\n]+:[0-9]+(:[^\n]*)?/)),
-    bad_ref: $ => seq($.list_marker, $.text, "\n"),
 
     stray_field: $ => seq(
       alias($._stray_label, $.stray_label), optional($.field_text), "\n",

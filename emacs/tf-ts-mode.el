@@ -54,10 +54,8 @@
 ;; An `L :' field holds the ids of linked tasks, one per list item.  A task links to tasks of its
 ;; file.  `C-c C-l' adds an id (chosen with completion) to the field, which it creates if the
 ;; task has none; `M-.' on an id jumps to the task and eldoc shows its title.
-;; An `R :' field holds references, a list of `path:line' items relative to the home folder
-;; (`tf-ts-mode-home', like a task's path), and is the last field of a task (a field after it is a
-;; warning).
-;; `M-.' on a reference jumps to it.
+;; `M-.' on a project path of `/ :' opens the project folder; `C-c C-w' on a task opens its
+;; worktree `~/.tf/.worktrees/<id>/' (`<id1>-<id2>/' when shared) in dired.
 ;; The label of a `C :' field (the owner's), from the line start to the `:', has a pastel yellow
 ;; background, that of an `A :' field (the agent's) a pastel blue one, that of a `J :' field (job
 ;; instructions) a pastel green one.
@@ -113,10 +111,6 @@ It keeps the buffer's font, so a character fills one grid cell and lines end at 
   '((((background light)) :background "#ffe8cc")
     (((background dark)) :background "#40301e"))
   "Face for the label of `L :' fields (linked tasks): a pastel orange background.")
-(defface tf-ts-ref-face
-  '((((background light)) :background "#f0e6f6")
-    (((background dark)) :background "#33283d"))
-  "Face for the label of `R :' fields (references): a pastel purple background.")
 (defface tf-ts-code-band-face
   '((t :inherit tf-ts-code-face :extend t))
   "Face for the fenced block at point: its band runs to the right edge of the window.")
@@ -182,9 +176,6 @@ Nil: never fold lines.  Like the hidden overflow, the block at point is shown wh
    '((field_label) @font-lock-keyword-face)
 
    :language 'tfmd :feature 'field
-   '((ref_label) @font-lock-keyword-face
-     (ref) @font-lock-string-face)
-
    :language 'tfmd :feature 'list
    '((list_marker) @font-lock-builtin-face)
 
@@ -197,7 +188,6 @@ Nil: never fold lines.  Like the hidden overflow, the block at point is shown wh
    '((invalid) @font-lock-warning-face
      (stray_property) @font-lock-warning-face
      (stray_field) @font-lock-warning-face
-     (bad_ref) @font-lock-warning-face
      (bad_type_value) @font-lock-warning-face))
   "Tree-sitter font-lock rules for `tf-ts-mode'.")
 
@@ -250,19 +240,6 @@ FIRST is the beginning of the label's line and LAST the position after the `:' o
         (let ((first (line-beginning-position)))
           (search-forward ":" (treesit-node-end label) t)
           (list face first (point)))))))
-
-(defun tf-ts-mode--fontify-ref-labels (limit)
-  "Paint the label of every `R :' field up to LIMIT."
-  (let ((beg (point)))
-    (dolist (label (treesit-query-capture (treesit-buffer-root-node 'tfmd)
-                                          '((ref_label) @l) beg limit t))
-      (save-excursion
-        (goto-char (treesit-node-start label))
-        (let ((first (line-beginning-position)))
-          (search-forward ":" (treesit-node-end label) t)
-          (add-face-text-property first (point) 'tf-ts-ref-face t))))
-    (goto-char limit)
-    nil))
 
 (defun tf-ts-mode--fontify-fields (limit)
   "Paint the label of every `C :', `A :', `J :' and `L :' field up to LIMIT, from the line start to `:'."
@@ -336,38 +313,41 @@ column."
 The band comes first so the overflow rule can see it: text past the limit, trailing space, tabs."
   `((tf-ts-mode--fontify-code-blocks)
     (tf-ts-mode--fontify-fields)
-    (tf-ts-mode--fontify-ref-labels)
     (tf-ts-mode--fontify-code-indent)
     (tf-ts-mode--fontify-title-fences)
     (tf-ts-mode--fontify-overflow 1 'tf-ts-overflow-face t)
     ("[ \t]+$" 0 'trailing-whitespace t)
     ("\t" 0 'tf-ts-tab-face t)))
 
-;;;; References (`R :')
+;;;; Cross references (`M-.')
 
 (require 'xref)
 
-(defconst tf-ts-mode--ref-regexp "\\([^:\n]+\\):\\([0-9]+\\)\\(?::\\([0-9]+\\)\\)?"
-  "A reference `path:line' or `path:line:col', as `grep -n' and vimgrep print it.")
-
-(defun tf-ts-mode--ref-at-point ()
-  "The reference string of the `R :' list item at point, or nil."
-  (when-let* ((node (treesit-node-at (max (tf-ts-mode--first-char) (1- (line-end-position))) 'tfmd))
-              ((equal (treesit-node-type node) "ref")))
-    (treesit-node-text node t)))
-
-(defun tf-ts-mode--ref-base ()
-  "The folder a reference is relative to: the home folder of tf.  Like the `/ :' path of a task."
-  (tf-ts-mode--root))
+(defun tf-ts-mode--project-at-point ()
+  "The project path under point on a `/ :' header line, or nil."
+  (save-excursion
+    (let ((pt (point)))
+      (beginning-of-line)
+      (when (looking-at "    / \\(.*\\)$")
+        (let ((beg (match-beginning 1))
+              (end (match-end 1)))
+          (when (and (>= pt beg) (<= pt end))
+            (goto-char pt)
+            (skip-chars-backward "^ " beg)
+            (let ((word-beg (point)))
+              (skip-chars-forward "^ " end)
+              (when (> (point) word-beg)
+                (buffer-substring-no-properties word-beg (point))))))))))
 
 (defun tf-ts-mode--xref-id-at-point ()
-  "The identifier at point for the xref backend: a reference, or `link:ID' on an `L :' item."
-  (or (tf-ts-mode--ref-at-point)
+  "The identifier at point for the xref backend: `project:PATH' on a `/ :' path, or `link:ID'
+on an `L :' item."
+  (or (when-let* ((path (tf-ts-mode--project-at-point))) (concat "project:" path))
       (when-let* ((id (tf-ts-mode--link-at-point))) (concat "link:" id))))
 
 (defun tf-ts-mode--xref-backend ()
-  "Xref backend of `tf-ts-mode': `M-.' on a reference of an `R :' field or an id of an `L :'
-field jumps to it."
+  "Xref backend of `tf-ts-mode': `M-.' on a project path of `/ :' or an id of an `L :' field
+jumps to it.  On any other place it declines."
   (and (tf-ts-mode--xref-id-at-point) 'tf-ts-refs))
 
 (cl-defmethod xref-backend-identifier-at-point ((_backend (eql tf-ts-refs)))
@@ -377,18 +357,15 @@ field jumps to it."
   nil)
 
 (cl-defmethod xref-backend-definitions ((_backend (eql tf-ts-refs)) ref)
-  (if (string-prefix-p "link:" ref)
-      (tf-ts-mode--link-xrefs (substring ref 5))
-    (tf-ts-mode--ref-definitions ref)))
+  (cond ((string-prefix-p "link:" ref) (tf-ts-mode--link-xrefs (substring ref 5)))
+        ((string-prefix-p "project:" ref) (tf-ts-mode--project-xrefs (substring ref 8)))
+        (t (user-error "Not a tf reference: %s" ref))))
 
-(defun tf-ts-mode--ref-definitions (ref)
-  "The xref items of the reference REF, `path:line' relative to the home folder."
-  (unless (string-match tf-ts-mode--ref-regexp ref) (user-error "Not a reference: %s" ref))
-  (let* ((file (expand-file-name (match-string 1 ref) (tf-ts-mode--ref-base)))
-         (line (string-to-number (match-string 2 ref)))
-         (col (if (match-string 3 ref) (max 0 (1- (string-to-number (match-string 3 ref)))) 0)))
-    (unless (file-exists-p file) (user-error "No such file: %s" file))
-    (list (xref-make ref (xref-make-file-location file line col)))))
+(defun tf-ts-mode--project-xrefs (path)
+  "The xref item of the project folder PATH, relative to the home folder."
+  (let ((dir (expand-file-name path (tf-ts-mode--root))))
+    (unless (file-directory-p dir) (user-error "No such project folder: %s" dir))
+    (list (xref-make path (xref-make-file-location (expand-file-name "." dir) 1 0)))))
 
 ;;;; Hidden overflow
 
@@ -500,11 +477,11 @@ the ruler.  The block holding point is shown whole, its band running to the wind
 ;;;; Tree helpers
 
 (defconst tf-ts-mode--containers
-  '("source_file" "task_section" "task" "field" "ref_field" "stray_field" "code_block" "separator_line")
+  '("source_file" "task_section" "task" "field" "stray_field" "code_block" "separator_line")
   "Node types that span several lines; the line-level node is the child below one of them.")
 
 (defconst tf-ts-mode--field-types
-  '("field_label" "ref_label" "stray_label" "text_line" "list_item" "ref_item" "bad_ref"
+  '("field_label" "stray_label" "text_line" "list_item"
     "fence_open" "fence_close" "code_line")
   "Line kinds that belong to the body of a field.")
 
@@ -545,11 +522,9 @@ Returns nil for NODE nil."
       (cond
        ((equal type "task_header")
         (tf-ts-mode--column-at (treesit-node-start (tf-ts-mode--child node "title"))))
-       ((member type '("title_continuation" "text_line" "list_item" "bad_ref"))
+       ((member type '("title_continuation" "text_line" "list_item"))
         (tf-ts-mode--column-at (treesit-node-start (tf-ts-mode--child node "text"))))
-       ((equal type "ref_item")
-        (tf-ts-mode--column-at (treesit-node-start (tf-ts-mode--child node "ref"))))
-       ((member type '("field_label" "ref_label" "stray_label")) 6)
+       ((member type '("field_label" "stray_label")) 6)
        ((member type '("id" "priority" "type" "tags")) 2)
        ((equal type "fence_open")
         (+ 4 (save-excursion (goto-char (treesit-node-start node)) (tf-ts-mode--text-indent))))
@@ -852,7 +827,7 @@ A task without a priority line gets one, from the default 50."
 
 (defcustom tf-ts-mode-home "~"
   "The home folder of tf: the folder that holds `.tf', and the base of the project paths of
-`/ :' and of the references of `R :'.  tf lives only in `<home>/.tf'."
+`/ :'.  tf lives only in `<home>/.tf'."
   :type 'directory
   :group 'tf-ts)
 
@@ -969,7 +944,7 @@ buffer."
 
 (defun tf-ts-mode-add-link (&optional id)
   "Link the current task to the task ID: add it to the `L :' field, which is created if needed.
-Interactively ID is chosen with completion from the tasks of this file.  The field goes before an `R :' field, which stays the last."
+Interactively ID is chosen with completion from the tasks of this file. "
   (interactive)
   (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
          (own (tf-ts-mode--task-id task))
@@ -982,16 +957,12 @@ Interactively ID is chosen with completion from the tasks of this file.  The fie
                                        cands)))
                    (unless alist (user-error "No task to link to"))
                    (cdr (assoc (completing-read "Link to task: " alist nil t) alist)))))
-         (field (tf-ts-mode--link-field task))
-         (ref (car (treesit-filter-child task (lambda (n) (equal (treesit-node-type n) "ref_field"))))))
+         (field (tf-ts-mode--link-field task)))
     (when (member id linked) (user-error "Task %s is already linked" id))
     (cond
      (field
       (goto-char (tf-ts-mode--last-line-end field))
       (insert (if (tf-ts-mode--linked-ids task) "\n" "\n\n") "      * " id))
-     (ref
-      (goto-char (treesit-node-start ref))
-      (insert "  L :\n\n      * " id "\n\n"))
      (t
       (goto-char (tf-ts-mode--last-line-end task))
       (insert "\n\n  L :\n\n      * " id)))))
@@ -1006,6 +977,28 @@ Interactively ID is chosen with completion from the tasks of this file.  The fie
               (text (string-trim (treesit-node-text (tf-ts-mode--child item "text"))))
               ((string-match-p "\\`[0-9]+\\'" text)))
     text))
+
+;;;; Worktree
+
+(defun tf-ts-mode--worktree-dir (id)
+  "The worktree folder of the task ID, or nil.
+A folder of `<home>/.tf/.worktrees/' is named by the ids of its tasks joined by `-'
+(`<id>' or `<id1>-<id2>-...'); ID has to be one of them."
+  (let ((root (expand-file-name ".tf/.worktrees/" (tf-ts-mode--root))))
+    (seq-find (lambda (dir)
+                (and (file-directory-p dir)
+                     (member id (split-string (file-name-nondirectory dir) "-" t))))
+              (directory-files root t directory-files-no-dot-files-regexp t))))
+
+(defun tf-ts-mode-visit-worktree ()
+  "Open the worktree folder of the task at point in dired, or say that there is none."
+  (interactive)
+  (let* ((task (or (tf-ts-mode--task-node) (user-error "Not in a task")))
+         (id (tf-ts-mode--task-id task))
+         (dir (and id (tf-ts-mode--worktree-dir id))))
+    (cond ((not id) (message "The task has no id"))
+          (dir (dired dir))
+          (t (message "The worktree of task %s does not exist" id)))))
 
 (defun tf-ts-mode--link-xrefs (id)
   "Xref items for the tasks with ID of this buffer."
@@ -1515,6 +1508,7 @@ a fenced block: the fences on their own lines, the code line between them 4 colu
   "C-c C-v" #'tf-ts-mode-advance-task
   "C-c C-u" #'tf-ts-mode-update
   "C-c C-i" #'tf-ts-mode-show-id-date
+  "C-c C-w" #'tf-ts-mode-visit-worktree
   "C-c SPC" #'tf-ts-mode-separator-below
   "C-c S-SPC" #'tf-ts-mode-separator-above)
 

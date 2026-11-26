@@ -189,52 +189,91 @@
       (dolist (l (nthcdr 5 lines))
         (when (> (length l) 0) (should (string-prefix-p "      " l)))))))
 
-(ert-deftest tf-ts-mode-test-refs-relative-to-home-folder ()
-  (let* ((home (make-temp-file "tfhome" t))
-         (tf-ts-mode-home home)
-         (file (expand-file-name ".tf/tasks.tfmd" home)))
-    (unwind-protect
-        (progn
-          (make-directory (file-name-directory file))
-          (make-directory (expand-file-name "x" home))
-          (with-temp-file file (insert "# todo\n"))
-          (with-temp-file (expand-file-name "x/y.txt" home) (insert "a\nb\nc\n"))
-          (with-temp-buffer
-            (insert "# todo\n\n- [ ] t\n    . 1\n\n  R :\n\n      * x/y.txt:3\n")
-            (setq buffer-file-name file)
-            (tf-ts-mode)
-            (let ((xref (car (xref-backend-definitions 'tf-ts-refs "x/y.txt:3"))))
-              (should (equal (expand-file-name "x/y.txt" home)
-                             (xref-file-location-file (xref-item-location xref))))
-              (should (= 3 (xref-file-location-line (xref-item-location xref)))))
-            (set-buffer-modified-p nil)))
-      (delete-directory home t))))
+(defmacro tf-ts-mode-test--with-home (&rest body)
+  "Run BODY with `tf-ts-mode-home' a temporary folder holding `x/' and `.tf/.worktrees/7/'."
+  `(let* ((home (make-temp-file "tfhome" t))
+          (tf-ts-mode-home home))
+     (unwind-protect
+         (progn
+           (make-directory (expand-file-name "x" home))
+           (make-directory (expand-file-name ".tf/.worktrees/7" home) t)
+           (make-directory (expand-file-name ".tf/.worktrees/10-11" home) t)
+           ,@body)
+       (delete-directory home t))))
 
-(ert-deftest tf-ts-mode-test-refs-last-and-jump ()
-  (let* ((dir (make-temp-file "tfref" t))
-         (tf-ts-mode-home dir)
-         (file (expand-file-name "tasks.tfmd" dir)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "x.txt" dir) (insert "a\nb\nc\n"))
-          (with-temp-buffer
-            (insert "# todo\n\n- [ ] t\n    . 1\n\n  D : d\n\n  R :\n\n      * x.txt:2\n")
-            (setq buffer-file-name file)
-            (tf-ts-mode)
-            (should-not (string-match-p "stray\\|bad_ref\\|ERROR"
-                                        (treesit-node-string (treesit-buffer-root-node 'tfmd))))
-            (goto-char (point-max))
-            (forward-line -1)
-            (should (equal (tf-ts-mode--ref-at-point) "x.txt:2"))
-            (let ((xref (car (xref-backend-definitions 'tf-ts-refs "x.txt:2"))))
-              (should (= 2 (xref-file-location-line (xref-item-location xref)))))
-            (set-buffer-modified-p nil))
-          (with-temp-buffer
-            (insert "# todo\n\n- [ ] t\n    . 1\n\n  R :\n\n      * x.txt:2\n\n  D : late\n")
-            (tf-ts-mode)
-            (should (string-match-p "stray_field"
-                                    (treesit-node-string (treesit-buffer-root-node 'tfmd))))))
-      (delete-directory dir t))))
+(defun tf-ts-mode-test--project-at (text needle &optional offset)
+  "The project path at point in TEXT, with point on the NEEDLE plus OFFSET characters."
+  (with-temp-buffer
+    (insert text)
+    (tf-ts-mode)
+    (goto-char (point-min))
+    (search-forward needle)
+    (goto-char (+ (match-beginning 0) (or offset 0)))
+    (tf-ts-mode--project-at-point)))
+
+(ert-deftest tf-ts-mode-test-project-path-at-point ()
+  (let ((text "# todo\n\n- [ ] t\n    . 1\n    / dev/a dev/b\n\n  D : dev/a\n"))
+    (should (equal (tf-ts-mode-test--project-at text "dev/a" 2) "dev/a"))
+    (should (equal (tf-ts-mode-test--project-at text "dev/b") "dev/b"))
+    (should (equal (tf-ts-mode-test--project-at text "dev/b" 5) "dev/b"))
+    (should-not (tf-ts-mode-test--project-at text "D : dev"))))
+
+(ert-deftest tf-ts-mode-test-project-xref-opens-folder ()
+  (tf-ts-mode-test--with-home
+   (with-temp-buffer
+     (insert "# todo\n\n- [ ] t\n    . 1\n    / x\n")
+     (tf-ts-mode)
+     (goto-char (point-max))
+     (search-backward "x")
+     (should (eq (tf-ts-mode--xref-backend) 'tf-ts-refs))
+     (should (equal (xref-backend-identifier-at-point 'tf-ts-refs) "project:x"))
+     (let ((xref (car (xref-backend-definitions 'tf-ts-refs "project:x"))))
+       (should (equal (file-name-as-directory (expand-file-name "x" home))
+                      (file-name-as-directory
+                       (xref-file-location-file (xref-item-location xref))))))
+     (should-error (xref-backend-definitions 'tf-ts-refs "project:nope") :type 'user-error)
+     (set-buffer-modified-p nil))))
+
+(ert-deftest tf-ts-mode-test-xref-backend-declines-elsewhere ()
+  (with-temp-buffer
+    (insert "# todo\n\n- [ ] t\n    . 1\n\n  D : text\n")
+    (tf-ts-mode)
+    (goto-char (point-max))
+    (should-not (tf-ts-mode--xref-backend))))
+
+(ert-deftest tf-ts-mode-test-visit-worktree ()
+  (tf-ts-mode-test--with-home
+   (with-temp-buffer
+     (insert "# todo\n\n- [ ] a\n    . 7\n\n- [ ] b\n    . 8\n")
+     (tf-ts-mode)
+     (goto-char (point-min))
+     (search-forward "- [ ] a")
+     (let ((msgs nil))
+       (cl-letf (((symbol-function 'dired) (lambda (d) (push (list 'dired d) msgs))))
+         (tf-ts-mode-visit-worktree)
+         (should (equal (mapcar #'cadr msgs) (list (expand-file-name ".tf/.worktrees/7" home)))))
+       (search-forward "- [ ] b")
+       (should (string-match-p "worktree of task 8 does not exist"
+                               (cl-letf (((symbol-function 'message)
+                                          (lambda (f &rest a) (apply #'format f a))))
+                                 (tf-ts-mode-visit-worktree)))))
+     (set-buffer-modified-p nil))))
+
+(ert-deftest tf-ts-mode-test-worktree-dir-shared-by-ids ()
+  (tf-ts-mode-test--with-home
+   (let ((shared (expand-file-name ".tf/.worktrees/10-11" home)))
+     (should (equal shared (directory-file-name (tf-ts-mode--worktree-dir "10"))))
+     (should (equal shared (directory-file-name (tf-ts-mode--worktree-dir "11"))))
+     (should-not (tf-ts-mode--worktree-dir "1"))
+     (should-not (tf-ts-mode--worktree-dir "0"))
+     (should-not (tf-ts-mode--worktree-dir "8")))))
+
+(ert-deftest tf-ts-mode-test-old-ref-field-is-flagged ()
+  (with-temp-buffer
+    (insert "# todo\n\n- [ ] t\n    . 1\n\n  R :\n\n      * x.txt:2\n")
+    (tf-ts-mode)
+    (should (string-match-p "stray_field"
+                            (treesit-node-string (treesit-buffer-root-node 'tfmd))))))
 
 (ert-deftest tf-ts-mode-test-next-previous-task ()
   (tf-ts-mode-test--with-buffer tf-ts-mode-test--sample
@@ -1158,14 +1197,6 @@ TITLES is the list of answers to the title question, in order."
                  "# todo\n\n- [ ] a\n    . 1\n\n  D : d\n\n  L :\n\n      * 2\n"))
   (should (equal (tf-ts-mode-test--link "# todo\n\n- [ ] a\n    . 1\n" "2")
                  "# todo\n\n- [ ] a\n    . 1\n\n  L :\n\n      * 2\n")))
-
-(ert-deftest tf-ts-mode-test-add-link-goes-before-refs ()
-  (let ((out (tf-ts-mode-test--link
-              "# done\n\n- [x] a\n    . 1\n\n  R :\n\n      * x.txt:1\n" "2")))
-    (should (equal out "# done\n\n- [x] a\n    . 1\n\n  L :\n\n      * 2\n\n  R :\n\n      * x.txt:1\n"))
-    (tf-ts-mode-test--with-buffer out
-      (should-not (string-match-p "stray\\|bad_ref\\|ERROR"
-                                  (treesit-node-string (treesit-buffer-root-node 'tfmd)))))))
 
 (ert-deftest tf-ts-mode-test-add-link-appends-and-refuses-duplicates ()
   (let ((text "# todo\n\n- [ ] a\n    . 1\n\n  L :\n\n      * 2\n"))
