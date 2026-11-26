@@ -191,6 +191,7 @@
 
 (ert-deftest tf-ts-mode-test-refs-relative-to-home-folder ()
   (let* ((home (make-temp-file "tfhome" t))
+         (tf-ts-mode-home home)
          (file (expand-file-name ".tf/tasks.tfmd" home)))
     (unwind-protect
         (progn
@@ -211,6 +212,7 @@
 
 (ert-deftest tf-ts-mode-test-refs-last-and-jump ()
   (let* ((dir (make-temp-file "tfref" t))
+         (tf-ts-mode-home dir)
          (file (expand-file-name "tasks.tfmd" dir)))
     (unwind-protect
         (progn
@@ -585,6 +587,7 @@
 
 (ert-deftest tf-ts-mode-test-update-missing-script ()
   (let* ((root (tf-ts-mode-test--project nil))
+         (tf-ts-mode-home root)
          (default-directory (file-name-as-directory root)))
     (unwind-protect
         (should-error (tf-ts-mode-update) :type 'user-error)
@@ -592,6 +595,7 @@
 
 (ert-deftest tf-ts-mode-test-update-declined ()
   (let* ((root (tf-ts-mode-test--project t))
+         (tf-ts-mode-home root)
          (default-directory (file-name-as-directory root))
          (started nil))
     (unwind-protect
@@ -605,6 +609,7 @@
   "Run `tf-ts-mode-update' in a temp project with `tf-ts-mode--grammar-script' returning GRAMMAR.
 Return the command it started."
   (let* ((root (tf-ts-mode-test--project t))
+         (tf-ts-mode-home root)
          (default-directory (file-name-as-directory root))
          (command nil))
     (unwind-protect
@@ -1094,7 +1099,8 @@ Return the command it started."
 TITLES is the list of answers to the title question, in order."
   (tf-ts-mode-test--with-buffer text
     (goto-char (point-min))
-    (cl-letf (((symbol-function 'read-string) (lambda (&rest _) (pop titles)))
+    (cl-letf (((symbol-function 'tf-ts-mode--git-folders) (lambda (&rest _) nil))
+              ((symbol-function 'read-string) (lambda (&rest _) (pop titles)))
               ((symbol-function 'completing-read) (lambda (&rest _) path))
               ((symbol-function 'completing-read-multiple) (lambda (&rest _) tags)))
       (call-interactively #'tf-ts-mode-new))
@@ -1116,6 +1122,19 @@ TITLES is the list of answers to the title question, in order."
 (ert-deftest tf-ts-mode-test-new-blank-title-asks-again ()
   (let ((out (tf-ts-mode-test--new-interactive "# todo\n" '("" "  " "later") "" nil)))
     (should (string-prefix-p "# todo\n\n- [ ] later\n    . ID\n" (car out)))))
+
+(ert-deftest tf-ts-mode-test-git-folders ()
+  (let* ((home (make-temp-file "tfgit" t))
+         (tf-ts-mode-home home))
+    (unwind-protect
+        (progn
+          (make-directory (expand-file-name "dev/app/.git" home) t)
+          (make-directory (expand-file-name "dev/team/svc/.git" home) t)
+          (make-directory (expand-file-name ".hidden/x/.git" home) t)
+          (make-directory (expand-file-name "plain" home) t)
+          (should (equal (sort (tf-ts-mode--git-folders home 3) #'string<)
+                         '("dev/app" "dev/team/svc"))))
+      (delete-directory home t))))
 
 (ert-deftest tf-ts-mode-test-new-candidates ()
   (tf-ts-mode-test--with-buffer
@@ -1153,70 +1172,37 @@ TITLES is the list of answers to the title question, in order."
     (should (equal (tf-ts-mode-test--link text "3") (concat text "      * 3\n")))
     (should-error (tf-ts-mode-test--link text "2") :type 'user-error)))
 
-(defmacro tf-ts-mode-test--with-tree (&rest body)
-  "Run BODY with HOME, a folder with a `.tf' and a child `.tf' below it, and CHILD, the child
-`.tf/tasks.tfmd'; the child holds the task 20 `deep task' and HOME the task 10 `top task'."
-  (declare (indent 0))
-  `(let* ((home (make-temp-file "tftree" t))
-          (top (expand-file-name ".tf/tasks.tfmd" home))
-          (child (expand-file-name "svc/.tf/tasks.tfmd" home)))
-     (unwind-protect
-         (progn
-           (make-directory (file-name-directory top))
-           (make-directory (file-name-directory child) t)
-           (with-temp-file top (insert "# todo\n\n- [ ] top task\n    . 10\n"))
-           (with-temp-file child (insert "# todo\n\n- [ ] deep task\n    . 20\n"))
-           ,@body)
-       (delete-directory home t))))
-
-(defun tf-ts-mode-test--xref-lines (file text id)
-  "The summaries of the xref items of the link ID, in a buffer visiting FILE with TEXT."
+(defun tf-ts-mode-test--xref-lines (text id)
+  "The summaries of the xref items of the link ID, in a buffer with TEXT."
   (with-temp-buffer
     (insert text)
-    (setq buffer-file-name file)
     (tf-ts-mode)
     (prog1 (mapcar #'xref-item-summary (xref-backend-definitions 'tf-ts-refs (concat "link:" id)))
       (set-buffer-modified-p nil))))
 
-(ert-deftest tf-ts-mode-test-links-go-down-only ()
-  (tf-ts-mode-test--with-tree
-    (let ((up "# todo\n\n- [ ] up\n    . 1\n\n  L :\n\n      * 20\n")
-          (down "# todo\n\n- [ ] low\n    . 2\n\n  L :\n\n      * 10\n"))
-      ;; the upper .tf reaches the lower one
-      (should (equal (tf-ts-mode-test--xref-lines top up "20") '("20  deep task")))
-      ;; the lower .tf does not reach the upper one
-      (let ((err (should-error (tf-ts-mode-test--xref-lines child down "10") :type 'user-error)))
-        (should (string-match-p "above" (cadr err))))
-      ;; nothing at all
-      (should-error (tf-ts-mode-test--xref-lines top up "99") :type 'user-error))))
+(ert-deftest tf-ts-mode-test-links-within-the-file ()
+  (let ((text "# todo\n\n- [ ] up\n    . 1\n\n  L :\n\n      * 20\n\n------------\n\n- [ ] deep task\n    . 20\n"))
+    (should (equal (tf-ts-mode-test--xref-lines text "20") '("20  deep task")))
+    (should-error (tf-ts-mode-test--xref-lines text "99") :type 'user-error)))
 
 (ert-deftest tf-ts-mode-test-link-candidates ()
-  (tf-ts-mode-test--with-tree
-    (with-temp-buffer
-      (insert "# todo\n\n- [ ] up\n    . 1\n")
-      (setq buffer-file-name top)
-      (tf-ts-mode)
-      (should (equal (mapcar #'car (tf-ts-mode--linkable-tasks)) '("1" "20"))))
-    (with-temp-buffer
-      (insert-file-contents child)
-      (setq buffer-file-name child)
-      (tf-ts-mode)
-      (should (equal (mapcar #'car (tf-ts-mode--linkable-tasks)) '("20"))))))
+  (with-temp-buffer
+    (insert "# todo\n\n- [ ] up\n    . 1\n\n- [ ] deep task\n    . 20\n")
+    (tf-ts-mode)
+    (should (equal (mapcar #'car (tf-ts-mode--linkable-tasks)) '("1" "20")))))
 
 (ert-deftest tf-ts-mode-test-link-eldoc-and-label ()
-  (tf-ts-mode-test--with-tree
-    (with-temp-buffer
-      (insert "# todo\n\n- [ ] up\n    . 1\n\n  L :\n\n      * 20\n")
-      (setq buffer-file-name top)
-      (tf-ts-mode)
-      (goto-char (point-max))
-      (forward-line -1)
-      (should (equal (tf-ts-mode--link-at-point) "20"))
-      (should (string-match-p "\\`deep task  \\[svc" (tf-ts-mode--eldoc)))
-      (font-lock-ensure)
-      (should (tf-ts-mode-test--has-face 'tf-ts-link-face
-                                         (get-text-property (+ (point-min) (length "# todo\n\n- [ ] up\n    . 1\n\n  L")) 'face)))
-      (set-buffer-modified-p nil))))
+  (with-temp-buffer
+    (insert "# todo\n\n- [ ] up\n    . 1\n\n  L :\n\n      * 20\n\n- [ ] deep task\n    . 20\n")
+    (tf-ts-mode)
+    (goto-char (point-min))
+    (search-forward "* 20")
+    (should (equal (tf-ts-mode--link-at-point) "20"))
+    (should (equal (tf-ts-mode--eldoc) "deep task"))
+    (font-lock-ensure)
+    (should (tf-ts-mode-test--has-face 'tf-ts-link-face
+                                       (get-text-property (+ (point-min) (length "# todo\n\n- [ ] up\n    . 1\n\n  L")) 'face)))
+    (set-buffer-modified-p nil)))
 
 ;;; tf-ts-mode-test.el ends here
 

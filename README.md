@@ -20,34 +20,28 @@ Control plane for your llm: while the agent works, you plan the next moves.
 
 ## Install
 
-From any folder: a home folder that holds your projects, or a single project. `.tf` folders
-may sit on any level (a global one for many projects, local ones inside projects):
+tf lives in one place, `$HOME/.tf`, wherever you start the agent:
 
 ```bash
-git clone https://github.com/blitzarx1/tf .tf && .tf/install.sh
+git clone https://github.com/blitzarx1/tf ~/.tf && ~/.tf/install.sh
 ```
 
-One `.tf` serves every project below its folder (its home folder); a task says which project it is about in its
-`/ ` header line. `install.sh`:
-- asks you to confirm or change the home folder (default: the folder you cloned into; set
-  `TF_PROJECTS_DIR` to answer in advance) and moves `.tf` there if you change it; `$HOME` is fine;
-- turns `.tf` into a plain folder by deleting `.tf/.git`;
-- inside another tf tree (a `.tf` above), takes `skill/`, `VERSION` and `update.sh` from the nearest
-  one, offline, so the tree has one version (`TF_FRESH=1`: the clone's version instead);
-- copies `.tf/skill` as the `tf` skill to `.claude/skills/tf` and `.agents/skills/tf` in the
-  home folder only (start the agent there or below it to use `/tf`);
-- adds `@.tf/skill/AGENTS.md` to `CLAUDE.md` and a pointer line to `AGENTS.md`; agents started in a
-  project below read those parent files too;
+One `.tf` serves every project below `$HOME`; a task says which projects it is about in its `/ `
+header line (paths relative to `$HOME`, several separated by a space). `install.sh` asks nothing:
+- turns `.tf` into a plain folder by deleting `.tf/.git` (from a clone elsewhere it first moves the
+  clone to `$HOME/.tf`);
+- links `~/.claude/skills/tf` and `~/.agents/skills/tf` to `~/.tf/skill`, the one original;
+- adds `@.tf/skill/AGENTS.md` to `~/CLAUDE.md` and a pointer line to `~/AGENTS.md`; agents started
+  in a project below read those parent files too;
 - deletes `README.md` and itself from `.tf`, leaving `tasks.tfmd`, `update.sh`, `VERSION` and `skill/`.
 
-To keep the task list private, add `.tf/`, `.claude/skills/tf` and `.agents/skills/tf` to
-`.gitignore`.
+`.tf/` is not a git repository; keep your own backup of `tasks.tfmd` if you want its history.
 
 ## Use
 
 | You type | The agent |
 |---|---|
-| `tf` | finds the closest `.tf` (walking up from where you started), loads it and every `.tf` below its folder, and works the first open `# todo` item: answers a question, plans and then implements a task (a bug too), or asks you questions and splits an epic into tasks. Then it offers numbered options built from what was done (close, commit, push to the feature branch, worktree summary, and their combinations; answer with digits; never a push to `main` unless the task says so), and moves the item to `# done` with a summary (a job, type `j`, goes to `# jobs` instead and stays there). |
+| `tf` | loads `~/.tf/tasks.tfmd` (always that one) and works the first open `# todo` item: answers a question, plans and then implements a task (a bug too), or asks you questions and splits an epic into tasks. Then it offers numbered options built from what was done (close, commit, push to the feature branch, worktree summary, and their combinations; answer with digits; never a push to `main` unless the task says so), and moves the item to `# done` with a summary (a job, type `j`, goes to `# jobs` instead and stays there). |
 | `tf <n>` | works the first `<n>` open `# todo` items together: one plan covering all of them, one approval, then implements them in order and closes each. |
 | `tf -t <ref>` | works the `# todo` item with that id, or the one your words describe, instead of the first. One `tf` per session: later messages in it are follow-ups, recorded as readable `A :` notes on that task; a second `tf` is declined, start a fresh session (unless the first split an epic: its tasks can follow in the same session). |
 | `tf -j <ref>` | runs the job from `# jobs` with that id or description, following its `J :` instructions (give parameter values in words after the job, or it asks for them), then (after your approval) raises its run count `[<n>]` and records the refined instructions. |
@@ -96,30 +90,27 @@ the first open task of a split epic.
 
 ## Projects
 
-One `.tf` can serve many projects; `.tf` folders can also be nested: `tf` works the closest one
-(`-t`/`-j` may also name an item of a `.tf` below it). A task's `/ ` line names its project.
+One `.tf` serves every project below `$HOME`. A task's `/ ` line names its projects.
 
-In a multi-project `.tf` code is never changed in the project folder: every task that changes
-project files gets a folder in `.tf-worktrees` (in the home folder) with a fresh clone of each
-project it needs (`<task folder>/<project>/`, link from the project's `origin`, or the agent asks
-for it), and afterwards the agent writes a `summary.tfmd` there: a reader's summary that only
-refers to the `.tf` of the task, which stays the source of truth.
+A task that changes the files of one project whose folder is a clean git repository is worked on a
+feature branch in the project folder itself, with no `summary.tfmd`.
 
-In a project `.tf` (its home folder is a git repository) there is no `.tf-worktrees`: the agent
-works on a feature branch in the project folder itself, with no `summary.tfmd`.
+A task that needs several projects, or one whose folder has uncommitted changes, gets a folder in
+`~/.tf/.worktrees` with a fresh clone of each project it needs (`<task folder>/<project>/`, link
+from the project's `origin`, or the agent asks for it), and afterwards the agent writes a
+`summary.tfmd` there: a reader's summary that only refers to `~/.tf/tasks.tfmd`, which stays the
+source of truth.
 
 ## Update
 
 ```bash
-.tf/update.sh
+~/.tf/update.sh
 ```
 
-It is the general update, for agent instructions only; integrations have their own (Emacs: `emacs/update-grammar.sh`).
-Run it from the home folder, or from a folder below it as `../.tf/update.sh` (it updates the
-`.tf` next to itself and every `.tf` below its home folder, so the subtree has one version; a `.tf`
-above is only reported when its version differs, and so does the agent on every `tf`). It replaces `skill/`, `VERSION` and
-`update.sh` with the latest versions and prints the version change. It never touches
-`tasks.tfmd`.
+It is the general update, for agent instructions only; integrations have their own (Emacs:
+`emacs/update-grammar.sh`). It replaces `skill/`, `VERSION` and `update.sh` with the latest
+versions, makes sure the skill links exist and prints the version change. It never touches
+`tasks.tfmd` or `.worktrees`.
 
 ## Emacs
 
@@ -131,15 +122,15 @@ Keys, all under `C-c C-`:
 |---|---|
 | `n` / `p` | next / previous task |
 | `t` | new task below the current one in 3 steps: the title (one line, not blank), the project path (completion from the paths in use and the folders of the root; blank: none), the tags (completion, separated by `, `; blank: none). It gets an id; priority 50 and no type are the defaults |
-| `l` | link the task to another one: choose a task (id and title; this file's tasks and those of the `.tf` folders below) and its id goes into an `L : ` field, created before `R : ` when missing. `M-.` on an id of an `L : ` item jumps to the task, eldoc shows its title. Links go only down the tree, never to a `.tf` above |
+| `l` | link the task to another one: choose a task (id and title) and its id goes into an `L : ` field, created before `R : ` when missing. `M-.` on an id of an `L : ` item jumps to the task, eldoc shows its title. |
 | `C-c >` / `C-c <` | raise / lower the priority of the task by 10 (0 to 100) |
 | `d` / `m` | add a `D : ` description / a `C : ` comment |
 | `j` | add a `J : ` job instructions field with `Parameters:` and `Steps:` lists, or go to the existing one; a job in `# todo` moves to `# jobs` with `v` |
-| `M-.` | on a reference of an `R : ` field (`path:line`, relative to the folder that holds `.tf`), jump to it |
+| `M-.` | on a reference of an `R : ` field (`path:line`, relative to `$HOME`), jump to it |
 | `s` | split the task into subtasks (asks for titles until an empty one); it becomes an epic `- [<n>]` |
 | `v` | move the task one stage on: backlog, todo, done, cancelled, and back to backlog. An epic moves with its subtasks when they share a stage; with some open and some not, nothing moves; the epic's `<n>` follows its subtasks |
 | `C-c SPC` / `C-c S-SPC` | separator below / above the task |
-| `u` | after a confirmation, run `.tf/update.sh` (the agent instructions) and `emacs/update-grammar.sh` (rebuilds the `tfmd` grammar for Emacs; also runnable by hand) |
+| `u` | after a confirmation, run `~/.tf/update.sh` (the agent instructions) and `emacs/update-grammar.sh` (rebuilds the `tfmd` grammar for Emacs; also runnable by hand) |
 | `i` | show the task's id as a date (also shown by eldoc on the id line) |
 
 Typing `. `, `/ `, `! `, `; ` or `: ` on a header line moves it to its place in the header. A
@@ -166,7 +157,7 @@ instructions) a pastel green one (`tf-ts-comment-face`, `tf-ts-agent-face`, `tf-
 | `tasks.tfmd` | Your tasks |
 | `skill/base.md` | The format, the task types (`q`, `e`, `j`) and the built-in commands with their full definitions (tf's; replaced by updates) |
 | `skill/AGENTS.md` | Points the agent to `skill/base.md` and `tasks.tfmd` |
-| `skill/SKILL.md` | The `tf` skill, copied to `.claude/skills/tf` and `.agents/skills/tf` (refreshed by `update.sh`) |
+| `skill/SKILL.md` | The `tf` skill, the original: `~/.claude/skills/tf` and `~/.agents/skills/tf` link to it |
 | `VERSION` | Installed tf version: the release tag, then the commit hash (written by install and update) |
-| `update.sh` | Updates `skill/` (and its copies), `VERSION` and itself |
+| `update.sh` | Updates `skill/`, `VERSION` and itself |
 | `install.sh` | Setup; deletes itself |
